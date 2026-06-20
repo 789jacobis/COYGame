@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5523d15e52964a24d84d2f47483ae2ba, type: 3}
+  m_Name: Green
+  m_EditorClassIdentifier: Assembly-CSharp::COYGame.PlayerData
+  playerName: Green
+  attack: 30
+  defense: 80
+  placeholderColor: {r: 0.25, g: 0.85, b: 0.3, a: 1}
+  attackCards:
+  - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
+  - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
+  - {fileID: 11400000, guid: 0902b0cb66ff9f542aaf7853a7e5e11e, type: 2}
+  - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
+  - {fileID: 11400000, guid: 40d06efdb17a5244caa82bf4674c2455, type: 2}
+  - {fileID: 11400000, guid: caaa6d051a174684a85148ebec63171b, type: 2}
+  defenseCards:
+  - {fileID: 11400000, guid: 1e5de123f3d196948be08f8a14df2315, type: 2}
+  - {fileID: 11400000, guid: 1e5de123f3d196948be08f8a14df2315, type: 2}
+  - {fileID: 11400000, guid: c8f1cfa2ad7c6a5428ccf6909ec37edb, type: 2}
+  - {fileID: 11400000, guid: 4532ccaa267dca64c949df37fc880423, type: 2}
+  - {fileID: 11400000, guid: 73bab27fc51e813479c8083fd923cc8f, type: 2}
+  - {fileID: 11400000, guid: c8f1cfa2ad7c6a5428ccf6909ec37edb, type: 2}
