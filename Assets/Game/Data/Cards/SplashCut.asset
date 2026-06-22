@@ -16,6 +16,11 @@ MonoBehaviour:
   rulesText: Deal 200% ATK damage
   cardType: 0
   apCost: 2
+  effects:
+  - effectType: 0
+    powerMultiplier: 2
+    percentageValue: 0
+    flatValue: 0
   effectType: 0
   powerMultiplier: 2
   percentageValue: 0

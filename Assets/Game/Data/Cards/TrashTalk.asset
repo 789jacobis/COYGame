@@ -16,6 +16,11 @@ MonoBehaviour:
   rulesText: Gain 150% DEF shield. Next incoming attack -20%
   cardType: 1
   apCost: 2
+  effects:
+  - effectType: 3
+    powerMultiplier: 1.5
+    percentageValue: 0.2
+    flatValue: 0
   effectType: 3
   powerMultiplier: 1.5
   percentageValue: 0.2

@@ -14,7 +14,12 @@ namespace COYGame
         ReduceNextIncomingAttack,
         ModifyOpponentNextTurnAp,
         ModifyCurrentTurnAp,
-        DrawCards
+        DrawCards,
+        DrawCardsNow,
+        ModifyHandCardCostsThisPhase,
+        BuffNextAttackCard,
+        DealBonusDamageIfStrategy,
+        GainBonusShieldIfStrategy
     }
 
     public enum BattlePhase

@@ -16,6 +16,11 @@ MonoBehaviour:
   rulesText: Later attacks this phase deal +75% damage
   cardType: 0
   apCost: 2
+  effects:
+  - effectType: 2
+    powerMultiplier: 0
+    percentageValue: 0.75
+    flatValue: 0
   effectType: 2
   powerMultiplier: 0
   percentageValue: 0.75

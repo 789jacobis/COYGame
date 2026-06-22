@@ -16,6 +16,11 @@ MonoBehaviour:
   rulesText: This phase AP +1
   cardType: 0
   apCost: 0
+  effects:
+  - effectType: 5
+    powerMultiplier: 0
+    percentageValue: 0
+    flatValue: 1
   effectType: 5
   powerMultiplier: 0
   percentageValue: 0

@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: SingleDefense
   m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
   cardName: Single Defense
-  rulesText: Gain 100% DEF shield
+  rulesText: Gain 100% DEF shield.
   cardType: 1
   apCost: 1
+  effects:
+  - effectType: 1
+    powerMultiplier: 1
+    percentageValue: 0
+    flatValue: 0
+    strategy: 2
   effectType: 1
   powerMultiplier: 1
   percentageValue: 0

@@ -17,6 +17,9 @@ namespace COYGame
         private RectTransform rectTransform;
         private Transform originalParent;
         private Vector2 originalAnchoredPosition;
+        private Quaternion originalRotation;
+        private Vector3 originalScale;
+        private int originalSiblingIndex;
         private bool dragging;
         private bool played;
 
@@ -28,6 +31,7 @@ namespace COYGame
             battleUI = ui;
             rectTransform = (RectTransform)transform;
             canvasGroup = canvasGroup != null ? canvasGroup : GetComponent<CanvasGroup>();
+            ConfigureCostPosition();
             Refresh(true);
         }
 
@@ -35,8 +39,25 @@ namespace COYGame
         {
             titleText.text = Card.Data.cardName;
             bodyText.text = $"{Card.Owner.playerName}\n{Card.Data.rulesText}";
-            costText.text = $"{Card.Data.apCost} AP";
+            costText.text = Card.CurrentCost.ToString();
+            costText.color = Card.CurrentCost < Card.Data.apCost ? Color.red : Color.black;
             background.color = playable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 0.9f);
+        }
+
+        private void ConfigureCostPosition()
+        {
+            if (costText == null)
+            {
+                return;
+            }
+
+            var costRect = costText.rectTransform;
+            costRect.anchorMin = costRect.anchorMax = new Vector2(0f, 1f);
+            costRect.pivot = new Vector2(0f, 1f);
+            costRect.anchoredPosition = new Vector2(8f, -8f);
+            costRect.sizeDelta = new Vector2(42f, 34f);
+            costText.alignment = TextAlignmentOptions.Center;
+            costText.fontSize = 24f;
         }
 
         public void OnPointerDown(PointerEventData eventData)
@@ -56,8 +77,12 @@ namespace COYGame
         {
             dragging = true;
             originalParent = transform.parent;
+            originalSiblingIndex = transform.GetSiblingIndex();
             originalAnchoredPosition = rectTransform.anchoredPosition;
+            originalRotation = rectTransform.localRotation;
+            originalScale = rectTransform.localScale;
             transform.SetParent(battleUI.DragLayer, true);
+            rectTransform.localRotation = Quaternion.identity;
             canvasGroup.blocksRaycasts = false;
             battleUI.ShowCardPreview(Card);
         }
@@ -94,7 +119,10 @@ namespace COYGame
         public void ReturnToHand()
         {
             transform.SetParent(originalParent, false);
+            transform.SetSiblingIndex(originalSiblingIndex);
             rectTransform.anchoredPosition = originalAnchoredPosition;
+            rectTransform.localRotation = originalRotation;
+            rectTransform.localScale = originalScale;
         }
 
         public void MarkPlayed()

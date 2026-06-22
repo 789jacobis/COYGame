@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -18,15 +18,15 @@ MonoBehaviour:
   placeholderColor: {r: 0.95, g: 0.95, b: 0.45, a: 1}
   attackCards:
   - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
-  - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
-  - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}
-  - {fileID: 11400000, guid: 7ad06a51438882345b3d495bb38f042b, type: 2}
-  - {fileID: 11400000, guid: 0902b0cb66ff9f542aaf7853a7e5e11e, type: 2}
-  - {fileID: 11400000, guid: 40d06efdb17a5244caa82bf4674c2455, type: 2}
+  - {fileID: 11400000, guid: be06d86b517643d0adf589f1be2cb26b, type: 2}
+  - {fileID: 11400000, guid: 07c63d675857454dbbd285740efd5315, type: 2}
+  - {fileID: 11400000, guid: c7b16f76ea844c8c82a57284dc31c34f, type: 2}
+  - {fileID: 11400000, guid: d4a2e46e8b53456188b0126b89bf559c, type: 2}
+  - {fileID: 11400000, guid: b5c597633d0747018e5858620dae9026, type: 2}
   defenseCards:
   - {fileID: 11400000, guid: 1e5de123f3d196948be08f8a14df2315, type: 2}
-  - {fileID: 11400000, guid: 1e5de123f3d196948be08f8a14df2315, type: 2}
-  - {fileID: 11400000, guid: c0658740bb4482640abee15cad9aaf1e, type: 2}
-  - {fileID: 11400000, guid: 1e5de123f3d196948be08f8a14df2315, type: 2}
-  - {fileID: 11400000, guid: c0658740bb4482640abee15cad9aaf1e, type: 2}
-  - {fileID: 11400000, guid: c8f1cfa2ad7c6a5428ccf6909ec37edb, type: 2}
+  - {fileID: 11400000, guid: c040549025034863a1c0fb44659c2b53, type: 2}
+  - {fileID: 11400000, guid: 16693d7ec25c44ef8a9b7342863f8ac2, type: 2}
+  - {fileID: 11400000, guid: 87d53bbc5a9140dfa911f4a68388bc10, type: 2}
+  - {fileID: 11400000, guid: 2f1269981da74e88859d93ef62a6561b, type: 2}
+  - {fileID: 11400000, guid: b5aac693aa904d5fb4e339edf0811557, type: 2}

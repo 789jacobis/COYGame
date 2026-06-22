@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b3ffb2254fff47459002686fc272b53, type: 3}
+  m_Name: DoncicSlowGame
+  m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
+  cardName: Slow the Game
+  rulesText: Opponent next turn AP -1. Next draw count +1.
+  cardType: 1
+  apCost: 2
+  effects:
+  - effectType: 4
+    powerMultiplier: 0
+    percentageValue: 0
+    flatValue: -1
+    strategy: 2
+  - effectType: 6
+    powerMultiplier: 0
+    percentageValue: 0
+    flatValue: 1
+    strategy: 2
+  effectType: 4
+  powerMultiplier: 0
+  percentageValue: 0
+  flatValue: -1

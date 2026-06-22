@@ -17,6 +17,11 @@ MonoBehaviour:
     AP -1"
   cardType: 1
   apCost: 2
+  effects:
+  - effectType: 4
+    powerMultiplier: 2
+    percentageValue: 0
+    flatValue: -1
   effectType: 4
   powerMultiplier: 2
   percentageValue: 0

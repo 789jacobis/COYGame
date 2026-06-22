@@ -20,13 +20,13 @@ namespace COYGame
             var ap = context.Ap;
             foreach (var card in sorted)
             {
-                if (card.Data.apCost > ap)
+                if (card.CurrentCost > ap)
                 {
                     continue;
                 }
 
                 result.Add(card);
-                ap -= card.Data.apCost;
+                ap -= card.CurrentCost;
             }
 
             return result;
@@ -34,9 +34,23 @@ namespace COYGame
 
         private int EstimateValue(CardRuntime card)
         {
-            return card.Data.effectType == CardEffectType.GainShield || card.Data.effectType == CardEffectType.ReduceNextIncomingAttack
-                ? Mathf.RoundToInt(card.Owner.defense * card.Data.powerMultiplier)
-                : Mathf.RoundToInt(card.Owner.attack * Mathf.Max(0.1f, card.Data.powerMultiplier));
+            var total = 0;
+            foreach (var effect in card.Data.Effects)
+            {
+                total += effect.effectType switch
+                {
+                    CardEffectType.GainShield or CardEffectType.ReduceNextIncomingAttack or CardEffectType.GainBonusShieldIfStrategy =>
+                        Mathf.RoundToInt(card.Owner.defense * Mathf.Max(0.1f, effect.powerMultiplier)),
+                    CardEffectType.DrawCardsNow => effect.flatValue * 30,
+                    CardEffectType.ModifyCurrentTurnAp => effect.flatValue * 40,
+                    CardEffectType.ModifyHandCardCostsThisPhase => Mathf.Abs(effect.flatValue) * 25,
+                    CardEffectType.BuffNextAttackCard => Mathf.RoundToInt(effect.percentageValue * 100f),
+                    CardEffectType.ModifyOpponentNextTurnAp => Mathf.Abs(effect.flatValue) * 35,
+                    _ => Mathf.RoundToInt(card.Owner.attack * Mathf.Max(0.1f, effect.powerMultiplier))
+                };
+            }
+
+            return total;
         }
     }
 }

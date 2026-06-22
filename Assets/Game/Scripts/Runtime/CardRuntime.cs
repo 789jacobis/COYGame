@@ -6,10 +6,12 @@ namespace COYGame
         {
             Data = data;
             Owner = owner;
+            CurrentCost = data.apCost;
         }
 
         public CardData Data { get; }
         public PlayerData Owner { get; }
+        public int CurrentCost { get; set; }
         public bool WasPlayed { get; set; }
     }
 }

@@ -36,6 +36,8 @@ namespace COYGame
         public int MaxApThisPhase => context?.MaxAp ?? maxApThisPhase;
         public int ActiveDeckCount => GetActiveDeck()?.DeckCount ?? 0;
         public int ActiveDiscardCount => GetActiveDeck()?.DiscardCount ?? 0;
+        public bool PlayerHoopDimmed => phase is BattlePhase.PlayerChooseStrategy or BattlePhase.PlayerAttack or BattlePhase.PlayerAttackResult or BattlePhase.EnemyDefense;
+        public bool EnemyHoopDimmed => phase is BattlePhase.PlayerDefense or BattlePhase.EnemyChooseStrategy or BattlePhase.EnemyAttack or BattlePhase.EnemyAttackResult;
 
         public string PhaseLabel => phase switch
         {
@@ -89,7 +91,7 @@ namespace COYGame
                 return;
             }
 
-            if (card.Data.apCost > context.Ap)
+            if (card.CurrentCost > context.Ap)
             {
                 ui.SetLog("Not enough AP");
                 ui.HideCardPreview();
@@ -100,6 +102,11 @@ namespace COYGame
             PlayCard(card);
             cardView.MarkPlayed();
             ui.HideCardPreview();
+            if (TryEndPlayerAttackOnScore())
+            {
+                return;
+            }
+
             RefreshAll();
         }
 
@@ -243,10 +250,34 @@ namespace COYGame
                 yield return new WaitForSeconds(enemyCardDelay);
                 PlayCard(card);
                 RefreshAll();
+                if (PlayerHoop.IsBroken)
+                {
+                    break;
+                }
+            }
+
+            EndEnemyAttackResult(PlayerHoop.IsBroken);
+        }
+
+        private bool TryEndPlayerAttackOnScore()
+        {
+            if (phase != BattlePhase.PlayerAttack || !EnemyHoop.IsBroken)
+            {
+                return false;
             }
 
             DiscardRemainingHand();
-            var scored = PlayerHoop.IsBroken;
+            PlayerTeam.Score += (int)context.Strategy;
+            phase = BattlePhase.PlayerAttackResult;
+            waitingForModal = true;
+            ui.ShowModal($"Player scored {(int)context.Strategy} points!");
+            RefreshAll();
+            return true;
+        }
+
+        private void EndEnemyAttackResult(bool scored)
+        {
+            DiscardRemainingHand();
             if (scored)
             {
                 EnemyTeam.Score += (int)context.Strategy;
@@ -284,18 +315,20 @@ namespace COYGame
                 Ap = ap,
                 MaxAp = ap,
                 DrawCount = drawCount,
+                Deck = deck,
                 Hand = deck.Draw(drawCount)
             };
         }
 
         private void PlayCard(CardRuntime card)
         {
-            context.Ap -= card.Data.apCost;
+            context.Ap -= card.CurrentCost;
             context.Hand.Remove(card);
             card.WasPlayed = true;
             var message = CardEffectResolver.Resolve(card, context);
             GetActiveDeck()?.DiscardCard(card);
             ui.SetLog(message);
+            ui.RenderHand(context.Hand, phase is BattlePhase.PlayerAttack or BattlePhase.PlayerDefense ? context.Ap : 0);
         }
 
         private void DiscardRemainingHand()

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b3ffb2254fff47459002686fc272b53, type: 3}
+  m_Name: KlayStayHome
+  m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
+  cardName: Stay Home
+  rulesText: Gain 80% DEF shield. Next incoming attack -20%.
+  cardType: 1
+  apCost: 1
+  effects:
+  - effectType: 3
+    powerMultiplier: 0.8
+    percentageValue: 0.2
+    flatValue: 0
+    strategy: 2
+  effectType: 3
+  powerMultiplier: 0.8
+  percentageValue: 0.2
+  flatValue: 0

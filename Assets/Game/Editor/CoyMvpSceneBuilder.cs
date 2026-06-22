@@ -49,37 +49,32 @@ public static class CoyMvpSceneBuilder
 
     private static Dictionary<string, CardData> CreateCards()
     {
-        var cards = new Dictionary<string, CardData>
+        var cards = new Dictionary<string, CardData>();
+        foreach (var guid in AssetDatabase.FindAssets("t:CardData", new[] { CardDataPath }))
         {
-            ["Layup"] = Card("Layup", "Layup", CardType.Attack, CardEffectType.DealDamage, 1, 1.25f, "Deal 125% ATK damage"),
-            ["SingleDefense"] = Card("SingleDefense", "Single Defense", CardType.Defense, CardEffectType.GainShield, 1, 1f, "Gain 100% DEF shield"),
-            ["DeepThree"] = Card("DeepThree", "Deep Three", CardType.Attack, CardEffectType.DealDamage, 2, 2.5f, "Deal 250% ATK damage"),
-            ["HeatCheck"] = Card("HeatCheck", "Heat Check", CardType.Attack, CardEffectType.BuffOutgoingAttackThisTurn, 2, 0f, "Later attacks this phase deal +75% damage", 0.75f),
-            ["SplashCut"] = Card("SplashCut", "Splash Cut", CardType.Attack, CardEffectType.DealDamage, 2, 2f, "Deal 200% ATK damage"),
-            ["CatchShoot"] = Card("CatchShoot", "Catch & Shoot", CardType.Attack, CardEffectType.DealDamage, 2, 2.25f, "Deal 225% ATK damage"),
-            ["TrashTalk"] = Card("TrashTalk", "Trash Talk", CardType.Defense, CardEffectType.ReduceNextIncomingAttack, 2, 1.5f, "Gain 150% DEF shield. Next incoming attack -20%", 0.2f),
-            ["Kick"] = Card("Kick", "Low Blow", CardType.Defense, CardEffectType.ModifyOpponentNextTurnAp, 2, 2f, "Gain 200% DEF shield. Opponent next turn AP -1", 0f, -1),
-            ["ChaseDown"] = Card("ChaseDown", "Chase Down", CardType.Defense, CardEffectType.GainShield, 2, 2f, "Gain 200% DEF shield"),
-            ["CourtVision"] = Card("CourtVision", "Court Vision", CardType.Attack, CardEffectType.ModifyCurrentTurnAp, 0, 0f, "This phase AP +1", 0f, 1),
-            ["StepBack"] = Card("StepBack", "Step Back", CardType.Attack, CardEffectType.DealDamage, 2, 2.4f, "Deal 240% ATK damage"),
-            ["Bulldoze"] = Card("Bulldoze", "Bulldoze", CardType.Attack, CardEffectType.DealDamage, 2, 2.25f, "Deal 225% ATK damage"),
-            ["ChargeDraw"] = Card("ChargeDraw", "Draw Charge", CardType.Defense, CardEffectType.GainShield, 2, 1.7f, "Gain 170% DEF shield")
-        };
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var card = AssetDatabase.LoadAssetAtPath<CardData>(path);
+            if (card != null)
+            {
+                cards[card.name] = card;
+            }
+        }
 
         return cards;
     }
 
     private static Dictionary<string, PlayerData> CreatePlayers(Dictionary<string, CardData> cards)
     {
-        var players = new Dictionary<string, PlayerData>
+        var players = new Dictionary<string, PlayerData>();
+        foreach (var guid in AssetDatabase.FindAssets("t:PlayerData", new[] { PlayerDataPath }))
         {
-            ["Curry"] = Player("Curry", 80, 30, new Color(0.35f, 0.65f, 1f), cards, new[] { "DeepThree", "HeatCheck", "DeepThree", "CourtVision" }, new[] { "SingleDefense", "ChargeDraw", "SingleDefense", "TrashTalk" }),
-            ["Green"] = Player("Green", 30, 80, new Color(0.25f, 0.85f, 0.3f), cards, new[] { "CourtVision", "Layup", "SplashCut", "HeatCheck" }, new[] { "TrashTalk", "Kick", "ChaseDown", "TrashTalk" }),
-            ["Klay"] = Player("Klay", 70, 45, new Color(0.3f, 0.9f, 0.95f), cards, new[] { "CatchShoot", "SplashCut", "CatchShoot", "DeepThree" }, new[] { "SingleDefense", "ChargeDraw", "ChaseDown", "SingleDefense" }),
-            ["LeBron"] = Player("LeBron", 75, 70, new Color(0.85f, 0.65f, 0.2f), cards, new[] { "Bulldoze", "Layup", "CourtVision", "SplashCut" }, new[] { "ChaseDown", "TrashTalk", "SingleDefense", "ChargeDraw" }),
-            ["Doncic"] = Player("Doncic", 82, 40, new Color(0.75f, 0.75f, 1f), cards, new[] { "StepBack", "CourtVision", "StepBack", "DeepThree" }, new[] { "SingleDefense", "ChargeDraw", "TrashTalk", "SingleDefense" }),
-            ["Reaves"] = Player("Reaves", 58, 55, new Color(0.95f, 0.95f, 0.45f), cards, new[] { "Layup", "CatchShoot", "CourtVision", "SplashCut" }, new[] { "ChargeDraw", "SingleDefense", "ChargeDraw", "TrashTalk" })
-        };
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            var player = AssetDatabase.LoadAssetAtPath<PlayerData>(path);
+            if (player != null)
+            {
+                players[player.name] = player;
+            }
+        }
 
         return players;
     }
@@ -102,6 +97,14 @@ public static class CoyMvpSceneBuilder
         card.rulesText = text;
         card.percentageValue = percentage;
         card.flatValue = flat;
+        card.effects.Clear();
+        card.effects.Add(new CardEffectData
+        {
+            effectType = effect,
+            powerMultiplier = multiplier,
+            percentageValue = percentage,
+            flatValue = flat
+        });
         EditorUtility.SetDirty(card);
         return card;
     }
@@ -155,7 +158,11 @@ public static class CoyMvpSceneBuilder
         root.GetComponent<Image>().color = Color.white;
         var title = Text(root.transform, "Title", "Card", 22, TextAlignmentOptions.Center, new Vector2(0, 92), new Vector2(145, 44));
         var body = Text(root.transform, "Body", "Rules", 18, TextAlignmentOptions.TopLeft, new Vector2(0, -10), new Vector2(138, 135));
-        var cost = Text(root.transform, "Cost", "1 AP", 18, TextAlignmentOptions.Center, new Vector2(0, -103), new Vector2(130, 30));
+        var cost = Text(root.transform, "Cost", "1", 24, TextAlignmentOptions.Center, new Vector2(-70, 105), new Vector2(42, 34));
+        var costRect = cost.rectTransform;
+        costRect.anchorMin = costRect.anchorMax = new Vector2(0f, 1f);
+        costRect.pivot = new Vector2(0f, 1f);
+        costRect.anchoredPosition = new Vector2(8f, -8f);
 
         var so = new SerializedObject(root.GetComponent<CardView>());
         so.FindProperty("background").objectReferenceValue = root.GetComponent<Image>();
@@ -188,7 +195,10 @@ public static class CoyMvpSceneBuilder
         uiGo.transform.SetParent(canvasGo.transform, false);
         var ui = uiGo.GetComponent<BattleUI>();
 
-        var court = Panel(canvasGo.transform, "Court", new Color(0.83f, 0.48f, 0.25f), new Vector2(0, -70), new Vector2(1280, 680));
+        var court = Panel(canvasGo.transform, "Court", new Color(0.83f, 0.48f, 0.25f), Vector2.zero, new Vector2(1920, 1080));
+        court.anchorMin = Vector2.zero;
+        court.anchorMax = Vector2.one;
+        court.sizeDelta = Vector2.zero;
         Panel(court.transform, "PaintLeft", new Color(0.75f, 0.25f, 0.2f), new Vector2(-470, 0), new Vector2(210, 430));
         Panel(court.transform, "PaintRight", new Color(0.75f, 0.25f, 0.2f), new Vector2(470, 0), new Vector2(210, 430));
         Panel(court.transform, "MidCourt", new Color(0.95f, 0.76f, 0.32f), Vector2.zero, new Vector2(10, 620));
@@ -208,20 +218,17 @@ public static class CoyMvpSceneBuilder
         var playerHoopText = Text(canvasGo.transform, "PlayerHoopText", "150/150\n盾 0", 26, TextAlignmentOptions.Center, new Vector2(-460, 360), new Vector2(220, 65));
         var enemyHoopText = Text(canvasGo.transform, "EnemyHoopText", "150/150\n盾 0", 26, TextAlignmentOptions.Center, new Vector2(460, 360), new Vector2(220, 65));
 
-        var hand = Panel(canvasGo.transform, "Hand", new Color(0, 0, 0, 0), new Vector2(0, -365), new Vector2(820, 270));
-        var layout = hand.gameObject.AddComponent<HorizontalLayoutGroup>();
-        layout.childAlignment = TextAnchor.MiddleCenter;
-        layout.spacing = 24;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
+        var hand = Panel(canvasGo.transform, "Hand", new Color(0, 0, 0, 0), new Vector2(0, -405), new Vector2(980, 300));
 
         var dragLayer = Panel(canvasGo.transform, "DragLayer", new Color(0, 0, 0, 0), Vector2.zero, new Vector2(1920, 1080));
         dragLayer.GetComponent<Image>().raycastTarget = false;
 
-        var ap = Text(canvasGo.transform, "AP", "AP 4/4", 38, TextAlignmentOptions.Center, new Vector2(-575, -455), new Vector2(190, 60));
-        var deck = Text(canvasGo.transform, "Deck", "Deck", 26, TextAlignmentOptions.Center, new Vector2(-620, -175), new Vector2(80, 80));
-        var discard = Text(canvasGo.transform, "Discard", "Discard", 26, TextAlignmentOptions.Center, new Vector2(620, -175), new Vector2(100, 80));
-        var confirm = Button(canvasGo.transform, "ConfirmButton", "OK", 34, new Vector2(600, -450), new Vector2(110, 70));
+        var ap = Text(canvasGo.transform, "AP", "AP 4/4", 38, TextAlignmentOptions.Center, new Vector2(0, -510), new Vector2(230, 64));
+        var deckBox = Panel(canvasGo.transform, "DeckBox", new Color(1f, 1f, 1f, 0.92f), new Vector2(-760, -330), new Vector2(110, 90));
+        var deck = Text(deckBox.transform, "Deck", "Deck", 26, TextAlignmentOptions.Center, Vector2.zero, new Vector2(110, 90));
+        var discardBox = Panel(canvasGo.transform, "DiscardBox", new Color(1f, 1f, 1f, 0.92f), new Vector2(760, -330), new Vector2(120, 90));
+        var discard = Text(discardBox.transform, "Discard", "Discard", 24, TextAlignmentOptions.Center, Vector2.zero, new Vector2(120, 90));
+        var confirm = Button(canvasGo.transform, "ConfirmButton", "OK", 34, new Vector2(820, -450), new Vector2(120, 76));
 
         var strategy = Panel(canvasGo.transform, "StrategyPanel", new Color(0, 0, 0, 0.55f), new Vector2(0, 75), new Vector2(410, 170));
         Text(strategy.transform, "StrategyTitle", "Choose Attack", 28, TextAlignmentOptions.Center, new Vector2(0, 48), new Vector2(360, 40));

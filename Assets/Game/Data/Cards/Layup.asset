@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: Layup
   m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
   cardName: Layup
-  rulesText: Deal 125% ATK damage
+  rulesText: Deal 125% ATK damage.
   cardType: 0
   apCost: 1
+  effects:
+  - effectType: 0
+    powerMultiplier: 1.25
+    percentageValue: 0
+    flatValue: 0
+    strategy: 2
   effectType: 0
   powerMultiplier: 1.25
   percentageValue: 0

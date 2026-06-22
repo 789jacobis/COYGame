@@ -16,6 +16,11 @@ MonoBehaviour:
   rulesText: Gain 200% DEF shield
   cardType: 1
   apCost: 2
+  effects:
+  - effectType: 1
+    powerMultiplier: 2
+    percentageValue: 0
+    flatValue: 0
   effectType: 1
   powerMultiplier: 2
   percentageValue: 0
