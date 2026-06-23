@@ -6,6 +6,11 @@ namespace COYGame
         Defense
     }
 
+    public enum CardTag
+    {
+        Exhaust
+    }
+
     public enum CardEffectType
     {
         DealDamage,
@@ -19,7 +24,8 @@ namespace COYGame
         ModifyHandCardCostsThisPhase,
         BuffNextAttackCard,
         DealBonusDamageIfStrategy,
-        GainBonusShieldIfStrategy
+        GainBonusShieldIfStrategy,
+        ModifyRandomHandCardCostThisPhase
     }
 
     public enum BattlePhase

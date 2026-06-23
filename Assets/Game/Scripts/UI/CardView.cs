@@ -38,7 +38,8 @@ namespace COYGame
         public void Refresh(bool playable)
         {
             titleText.text = Card.Data.cardName;
-            bodyText.text = $"{Card.Owner.playerName}\n{Card.Data.rulesText}";
+            var ownerName = Card.Owner != null ? Card.Owner.playerName : "[Item]";
+            bodyText.text = $"{ownerName}\n{Card.Data.rulesText}";
             costText.text = Card.CurrentCost.ToString();
             costText.color = Card.CurrentCost < Card.Data.apCost ? Color.red : Color.black;
             background.color = playable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 0.9f);

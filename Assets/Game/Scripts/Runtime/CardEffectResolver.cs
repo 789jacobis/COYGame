@@ -18,28 +18,31 @@ namespace COYGame
         private static string ResolveEffect(CardRuntime card, TurnContext context, CardEffectData effect)
         {
             var data = card.Data;
+            var ownerName = card.Owner != null ? card.Owner.playerName : "[Item]";
+            var ownerAttack = card.Owner != null ? card.Owner.attack : 0;
+            var ownerDefense = card.Owner != null ? card.Owner.defense : 0;
             switch (effect.effectType)
             {
                 case CardEffectType.DealDamage:
                 {
-                    var raw = Mathf.RoundToInt(card.Owner.attack * effect.powerMultiplier * context.OutgoingAttackMultiplier * context.NextAttackCardMultiplier * context.NextIncomingAttackMultiplier);
+                    var raw = Mathf.RoundToInt(ownerAttack * effect.powerMultiplier * context.OutgoingAttackMultiplier * context.NextAttackCardMultiplier * context.NextIncomingAttackMultiplier);
                     var dealt = context.TargetHoop.ApplyDamage(raw);
                     context.NextAttackCardMultiplier = 1f;
                     context.NextIncomingAttackMultiplier = 1f;
-                    return $"{card.Owner.playerName} played {data.cardName}: {dealt} damage";
+                    return $"{ownerName} played {data.cardName}: {dealt} damage";
                 }
                 case CardEffectType.GainShield:
                 {
-                    var shield = Mathf.RoundToInt(card.Owner.defense * effect.powerMultiplier);
+                    var shield = Mathf.RoundToInt(ownerDefense * effect.powerMultiplier);
                     context.TargetHoop.AddShield(shield);
-                    return $"{card.Owner.playerName} played {data.cardName}: +{shield} shield";
+                    return $"{ownerName} played {data.cardName}: +{shield} shield";
                 }
                 case CardEffectType.BuffOutgoingAttackThisTurn:
                     context.OutgoingAttackMultiplier += effect.percentageValue;
                     return $"{data.cardName}: attack damage +{Mathf.RoundToInt(effect.percentageValue * 100f)}% this phase";
                 case CardEffectType.ReduceNextIncomingAttack:
                 {
-                    var shield = Mathf.RoundToInt(card.Owner.defense * effect.powerMultiplier);
+                    var shield = Mathf.RoundToInt(ownerDefense * effect.powerMultiplier);
                     context.TargetHoop.AddShield(shield);
                     context.NextIncomingAttackMultiplier *= Mathf.Clamp01(1f - effect.percentageValue);
                     return $"{data.cardName}: +{shield} shield, next incoming attack -{Mathf.RoundToInt(effect.percentageValue * 100f)}%";
@@ -48,7 +51,7 @@ namespace COYGame
                 {
                     if (effect.powerMultiplier > 0f)
                     {
-                        var shield = Mathf.RoundToInt(card.Owner.defense * effect.powerMultiplier);
+                        var shield = Mathf.RoundToInt(ownerDefense * effect.powerMultiplier);
                         context.TargetHoop.AddShield(shield);
                     }
 
@@ -77,6 +80,18 @@ namespace COYGame
 
                     return $"{data.cardName}: hand costs {effect.flatValue:+#;-#;0}";
                 }
+                case CardEffectType.ModifyRandomHandCardCostThisPhase:
+                {
+                    var candidates = context.Hand.FindAll(handCard => handCard.CurrentCost > 0);
+                    if (candidates.Count == 0)
+                    {
+                        return $"{data.cardName}: no card to discount";
+                    }
+
+                    var handCard = candidates[Random.Range(0, candidates.Count)];
+                    handCard.CurrentCost = Mathf.Max(0, handCard.CurrentCost + effect.flatValue);
+                    return $"{data.cardName}: {handCard.Data.cardName} cost {effect.flatValue:+#;-#;0}";
+                }
                 case CardEffectType.BuffNextAttackCard:
                     context.NextAttackCardMultiplier += effect.percentageValue;
                     return $"{data.cardName}: next attack +{Mathf.RoundToInt(effect.percentageValue * 100f)}% damage";
@@ -87,7 +102,7 @@ namespace COYGame
                         return $"{data.cardName}: no strategy bonus";
                     }
 
-                    var raw = Mathf.RoundToInt(card.Owner.attack * effect.powerMultiplier * context.OutgoingAttackMultiplier * context.NextAttackCardMultiplier * context.NextIncomingAttackMultiplier);
+                    var raw = Mathf.RoundToInt(ownerAttack * effect.powerMultiplier * context.OutgoingAttackMultiplier * context.NextAttackCardMultiplier * context.NextIncomingAttackMultiplier);
                     var dealt = context.TargetHoop.ApplyDamage(raw);
                     context.NextAttackCardMultiplier = 1f;
                     context.NextIncomingAttackMultiplier = 1f;
@@ -100,7 +115,7 @@ namespace COYGame
                         return $"{data.cardName}: no strategy shield bonus";
                     }
 
-                    var shield = Mathf.RoundToInt(card.Owner.defense * effect.powerMultiplier);
+                    var shield = Mathf.RoundToInt(ownerDefense * effect.powerMultiplier);
                     context.TargetHoop.AddShield(shield);
                     return $"{data.cardName}: +{shield} bonus shield";
                 }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ReavesExtraPass
   m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
   cardName: Extra Pass
-  rulesText: Draw 1. Cards in hand cost 1 less this phase.
+  rulesText: Draw 1. A random card in hand costs 1 less this phase.
   cardType: 0
   apCost: 1
   effects:
@@ -22,7 +22,7 @@ MonoBehaviour:
     percentageValue: 0
     flatValue: 1
     strategy: 2
-  - effectType: 8
+  - effectType: 12
     powerMultiplier: 0
     percentageValue: 0
     flatValue: -1

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GreenSwitchEverything
   m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
   cardName: Switch Everything
-  rulesText: Gain 150% DEF shield. Cards in hand cost 1 less this phase.
+  rulesText: Gain 150% DEF shield. A random card in hand costs 1 less this phase.
   cardType: 1
   apCost: 2
   effects:
@@ -22,7 +22,7 @@ MonoBehaviour:
     percentageValue: 0
     flatValue: 0
     strategy: 2
-  - effectType: 8
+  - effectType: 12
     powerMultiplier: 0
     percentageValue: 0
     flatValue: -1

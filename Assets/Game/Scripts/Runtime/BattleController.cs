@@ -13,6 +13,7 @@ namespace COYGame
         [SerializeField] private int baseDrawCount = 4;
         [SerializeField] private float threePointMultiplier = 1.2f;
         [SerializeField] private float enemyCardDelay = 0.5f;
+        [SerializeField] private CardData reboundCard = null;
 
         [Header("Teams")]
         [SerializeField] private List<PlayerData> playerRoster = new();
@@ -176,6 +177,10 @@ namespace COYGame
                 {
                     PlayerTeam.Score += (int)context.Strategy;
                 }
+                else
+                {
+                    EnemyTeam.PendingReboundCards++;
+                }
 
                 phase = BattlePhase.PlayerAttackResult;
                 waitingForModal = true;
@@ -282,6 +287,10 @@ namespace COYGame
             {
                 EnemyTeam.Score += (int)context.Strategy;
             }
+            else
+            {
+                PlayerTeam.PendingReboundCards++;
+            }
 
             phase = BattlePhase.EnemyAttackResult;
             waitingForModal = true;
@@ -306,6 +315,11 @@ namespace COYGame
             maxApThisPhase = ap;
             var drawCount = Mathf.Max(0, baseDrawCount + acting.NextTurnDrawModifier);
             acting.NextTurnDrawModifier = 0;
+            var hand = deck.Draw(drawCount);
+            if (deck == acting.AttackDeck)
+            {
+                AddPendingReboundCards(acting, hand);
+            }
             return new TurnContext
             {
                 Phase = phase,
@@ -316,8 +330,23 @@ namespace COYGame
                 MaxAp = ap,
                 DrawCount = drawCount,
                 Deck = deck,
-                Hand = deck.Draw(drawCount)
+                Hand = hand
             };
+        }
+
+        private void AddPendingReboundCards(TeamRuntime acting, List<CardRuntime> hand)
+        {
+            if (reboundCard == null || acting.PendingReboundCards <= 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < acting.PendingReboundCards; i++)
+            {
+                hand.Add(new CardRuntime(reboundCard, null));
+            }
+
+            acting.PendingReboundCards = 0;
         }
 
         private void PlayCard(CardRuntime card)

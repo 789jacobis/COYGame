@@ -35,18 +35,21 @@ namespace COYGame
         private int EstimateValue(CardRuntime card)
         {
             var total = 0;
+            var ownerAttack = card.Owner != null ? card.Owner.attack : 0;
+            var ownerDefense = card.Owner != null ? card.Owner.defense : 0;
             foreach (var effect in card.Data.Effects)
             {
                 total += effect.effectType switch
                 {
                     CardEffectType.GainShield or CardEffectType.ReduceNextIncomingAttack or CardEffectType.GainBonusShieldIfStrategy =>
-                        Mathf.RoundToInt(card.Owner.defense * Mathf.Max(0.1f, effect.powerMultiplier)),
+                        Mathf.RoundToInt(ownerDefense * Mathf.Max(0.1f, effect.powerMultiplier)),
                     CardEffectType.DrawCardsNow => effect.flatValue * 30,
                     CardEffectType.ModifyCurrentTurnAp => effect.flatValue * 40,
                     CardEffectType.ModifyHandCardCostsThisPhase => Mathf.Abs(effect.flatValue) * 25,
+                    CardEffectType.ModifyRandomHandCardCostThisPhase => Mathf.Abs(effect.flatValue) * 25,
                     CardEffectType.BuffNextAttackCard => Mathf.RoundToInt(effect.percentageValue * 100f),
                     CardEffectType.ModifyOpponentNextTurnAp => Mathf.Abs(effect.flatValue) * 35,
-                    _ => Mathf.RoundToInt(card.Owner.attack * Mathf.Max(0.1f, effect.powerMultiplier))
+                    _ => Mathf.RoundToInt(ownerAttack * Mathf.Max(0.1f, effect.powerMultiplier))
                 };
             }
 

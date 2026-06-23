@@ -81,13 +81,20 @@ namespace COYGame
                 return false;
             }
 
-            if (!RectTransformUtility.RectangleContainsScreenPoint(playArea, screenPosition, null))
+            if (!IsMiddleScreenBand(screenPosition))
             {
                 return false;
             }
 
             controller.TryPlayPlayerCard(cardView);
             return true;
+        }
+
+        private static bool IsMiddleScreenBand(Vector2 screenPosition)
+        {
+            var bottom = Screen.height / 3f;
+            var top = Screen.height * 2f / 3f;
+            return screenPosition.y >= bottom && screenPosition.y <= top;
         }
 
         public void RenderHand(IReadOnlyList<CardRuntime> hand, int currentAp)
@@ -144,7 +151,8 @@ namespace COYGame
         public void ShowCardPreview(CardRuntime card)
         {
             previewTitle.text = card.Data.cardName;
-            previewBody.text = $"{card.Owner.playerName}\n{card.Data.rulesText}";
+            var ownerName = card.Owner != null ? card.Owner.playerName : "[Item]";
+            previewBody.text = $"{ownerName}\n{card.Data.rulesText}";
             previewCost.text = $"{card.CurrentCost} AP";
             previewCost.color = card.CurrentCost < card.Data.apCost ? Color.red : Color.black;
             cardPreview.gameObject.SetActive(true);

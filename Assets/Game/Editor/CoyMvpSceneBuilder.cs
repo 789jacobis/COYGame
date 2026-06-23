@@ -28,7 +28,7 @@ public static class CoyMvpSceneBuilder
 
         CreateCamera();
         CreateEventSystem();
-        var controller = CreateBattleSceneUi(cardPrefab, players);
+        var controller = CreateBattleSceneUi(cardPrefab, players, cards);
         CoyFontUtility.RepairBattleUiReferences();
 
         EditorSceneManager.SaveScene(scene, ScenePath);
@@ -179,7 +179,7 @@ public static class CoyMvpSceneBuilder
         return prefab;
     }
 
-    private static BattleController CreateBattleSceneUi(CardView cardPrefab, Dictionary<string, PlayerData> players)
+    private static BattleController CreateBattleSceneUi(CardView cardPrefab, Dictionary<string, PlayerData> players, Dictionary<string, CardData> cards)
     {
         var canvasGo = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         var canvas = canvasGo.GetComponent<Canvas>();
@@ -288,6 +288,7 @@ public static class CoyMvpSceneBuilder
 
         var controllerSo = new SerializedObject(controller);
         controllerSo.FindProperty("ui").objectReferenceValue = ui;
+        controllerSo.FindProperty("reboundCard").objectReferenceValue = cards["Rebound"];
         FillRoster(controllerSo.FindProperty("playerRoster"), players["Curry"], players["Green"], players["Klay"]);
         FillRoster(controllerSo.FindProperty("enemyRoster"), players["LeBron"], players["Doncic"], players["Reaves"]);
         controllerSo.ApplyModifiedPropertiesWithoutUndo();

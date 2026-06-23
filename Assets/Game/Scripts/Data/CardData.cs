@@ -10,6 +10,7 @@ namespace COYGame
         public string cardName;
         [TextArea(2, 5)] public string rulesText;
         public CardType cardType;
+        public List<CardTag> tags = new();
 
         [Header("Cost")]
         [Min(0)] public int apCost = 1;

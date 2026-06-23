@@ -13,5 +13,6 @@ namespace COYGame
         public PlayerData Owner { get; }
         public int CurrentCost { get; set; }
         public bool WasPlayed { get; set; }
+        public bool IsExhaust => Data.tags != null && Data.tags.Contains(CardTag.Exhaust);
     }
 }

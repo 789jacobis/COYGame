@@ -35,5 +35,6 @@ namespace COYGame
         public int Score { get; set; }
         public int NextTurnApModifier { get; set; }
         public int NextTurnDrawModifier { get; set; }
+        public int PendingReboundCards { get; set; }
     }
 }

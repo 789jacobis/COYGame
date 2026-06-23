@@ -53,6 +53,11 @@ namespace COYGame
             }
 
             card.WasPlayed = false;
+            if (card.IsExhaust)
+            {
+                return;
+            }
+
             discard.Add(card);
         }
 
