@@ -15,9 +15,38 @@ MonoBehaviour:
   cardName: Quick Release
   rulesText: Next attack card +35% damage.
   cardType: 0
+  keywordRules: []
   apCost: 1
+  usablePhase: 0
   effects:
-  - effectType: 9
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 0
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 2
+      modifierType: 2
+      multiplier: 1
+      percentageValue: 0.35
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 8
+      count: 0
+    effectType: 9
     powerMultiplier: 0
     percentageValue: 0.35
     flatValue: 0

@@ -10,10 +10,17 @@ namespace COYGame
         public string cardName;
         [TextArea(2, 5)] public string rulesText;
         public CardType cardType;
+        public Sprite artwork;
+
+        [Header("Keywords")]
         public List<CardTag> tags = new();
+        public List<CardKeywordData> keywordRules = new();
 
         [Header("Cost")]
         [Min(0)] public int apCost = 1;
+
+        [Header("Item Rules")]
+        public BattlePhase usablePhase = BattlePhase.None;
 
         [Header("Effects")]
         public List<CardEffectData> effects = new();

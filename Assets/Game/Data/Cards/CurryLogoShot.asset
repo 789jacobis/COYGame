@@ -15,14 +15,74 @@ MonoBehaviour:
   cardName: Logo Shot
   rulesText: Deal 260% ATK damage. If 3PT, deal 100% bonus damage.
   cardType: 0
+  keywordRules: []
   apCost: 3
+  usablePhase: 0
   effects:
-  - effectType: 0
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 1
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 10
+      count: 1
+    action:
+      actionType: 1
+      modifierType: 0
+      multiplier: 2.6
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 0
     powerMultiplier: 2.6
     percentageValue: 0
     flatValue: 0
     strategy: 2
-  - effectType: 10
+  - useV2Effect: 1
+    trigger: 0
+    conditions:
+    - conditionType: 13
+      strategy: 3
+      statusId: 
+      intValue: 0
+    target:
+      side: 1
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 10
+      count: 1
+    action:
+      actionType: 1
+      modifierType: 0
+      multiplier: 1
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 10
     powerMultiplier: 1
     percentageValue: 0
     flatValue: 0

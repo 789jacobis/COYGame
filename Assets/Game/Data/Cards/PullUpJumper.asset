@@ -15,9 +15,38 @@ MonoBehaviour:
   cardName: Pull-Up Jumper
   rulesText: Deal 190% ATK damage.
   cardType: 0
+  keywordRules: []
   apCost: 2
+  usablePhase: 0
   effects:
-  - effectType: 0
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 1
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 10
+      count: 1
+    action:
+      actionType: 1
+      modifierType: 0
+      multiplier: 1.9
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 0
     powerMultiplier: 1.9
     percentageValue: 0
     flatValue: 0

@@ -8,9 +8,10 @@ public static class CoyFontUtility
     public static void RepairCurrentScene()
     {
         ResetTmpToDefaultFont();
+        CoySceneVisualUtility.EnsureCourtSprites();
         RepairBattleUiReferences();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-        Debug.Log("COY scene repaired with default TMP font references.");
+        Debug.Log("COY scene repaired with default TMP font references and sprite court visuals.");
     }
 
     private static void ResetTmpToDefaultFont()

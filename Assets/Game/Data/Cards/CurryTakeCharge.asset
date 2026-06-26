@@ -15,14 +15,74 @@ MonoBehaviour:
   cardName: Take Charge
   rulesText: Gain 90% DEF shield. If 2PT, gain 80% bonus shield.
   cardType: 1
+  keywordRules: []
   apCost: 2
+  usablePhase: 0
   effects:
-  - effectType: 1
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 4
+      modifierType: 0
+      multiplier: 0.9
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 1
     powerMultiplier: 0.9
     percentageValue: 0
     flatValue: 0
     strategy: 2
-  - effectType: 11
+  - useV2Effect: 1
+    trigger: 0
+    conditions:
+    - conditionType: 12
+      strategy: 2
+      statusId: 
+      intValue: 0
+    target:
+      side: 0
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 4
+      modifierType: 0
+      multiplier: 0.8
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 11
     powerMultiplier: 0.8
     percentageValue: 0
     flatValue: 0

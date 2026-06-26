@@ -15,6 +15,7 @@ MonoBehaviour:
   playerName: LeBron
   attack: 75
   defense: 70
+  cardArtwork: {fileID: 21300000, guid: b51604c6485d4b938cb3111637713daa, type: 3}
   placeholderColor: {r: 0.85, g: 0.65, b: 0.2, a: 1}
   attackCards:
   - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}

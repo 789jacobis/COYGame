@@ -15,6 +15,7 @@ MonoBehaviour:
   playerName: Doncic
   attack: 82
   defense: 40
+  cardArtwork: {fileID: 21300000, guid: 28bf1ec2f51f40e1a6fce297a166956e, type: 3}
   placeholderColor: {r: 0.75, g: 0.75, b: 1, a: 1}
   attackCards:
   - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}

@@ -15,9 +15,38 @@ MonoBehaviour:
   cardName: Glue Guy
   rulesText: This phase AP +1.
   cardType: 0
+  keywordRules: []
   apCost: 0
+  usablePhase: 0
   effects:
-  - effectType: 5
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 0
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 6
+      modifierType: 0
+      multiplier: 0
+      percentageValue: 0
+      intValue: 1
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 5
     powerMultiplier: 0
     percentageValue: 0
     flatValue: 1

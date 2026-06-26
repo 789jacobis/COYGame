@@ -15,14 +15,74 @@ MonoBehaviour:
   cardName: Pick & Roll
   rulesText: Draw 1. A random card in hand costs 1 less this phase.
   cardType: 0
+  keywordRules: []
   apCost: 1
+  usablePhase: 0
   effects:
-  - effectType: 7
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 0
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 10
+      modifierType: 0
+      multiplier: 0
+      percentageValue: 0
+      intValue: 1
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 7
     powerMultiplier: 0
     percentageValue: 0
     flatValue: 1
     strategy: 2
-  - effectType: 12
+  - useV2Effect: 1
+    trigger: 0
+    conditions:
+    - conditionType: 11
+      strategy: 2
+      statusId: 
+      intValue: 0
+    target:
+      side: 0
+      kind: 2
+      zone: 0
+      ownershipScope: 1
+      selector: 2
+      count: 1
+    action:
+      actionType: 9
+      modifierType: 0
+      multiplier: 0
+      percentageValue: 0
+      intValue: -1
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 1
+      count: 0
+    effectType: 12
     powerMultiplier: 0
     percentageValue: 0
     flatValue: -1

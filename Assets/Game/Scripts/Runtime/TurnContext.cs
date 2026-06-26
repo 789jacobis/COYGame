@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace COYGame
@@ -17,5 +18,6 @@ namespace COYGame
         public float NextIncomingAttackMultiplier = 1f;
         public DeckRuntime Deck;
         public List<CardRuntime> Hand = new();
+        public Func<IReadOnlyList<CardRuntime>, CardTrigger, string> ResolveCardTriggers;
     }
 }

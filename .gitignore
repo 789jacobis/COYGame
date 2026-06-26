@@ -37,3 +37,4 @@ desktop.ini
 # Codex/local agent state
 /.agents/
 /.codex/
+/.codex-remote-attachments/

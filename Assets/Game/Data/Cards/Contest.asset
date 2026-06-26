@@ -15,10 +15,71 @@ MonoBehaviour:
   cardName: Contest
   rulesText: Gain 60% DEF shield. Next incoming attack -20%.
   cardType: 1
+  keywordRules: []
   apCost: 1
+  usablePhase: 0
   effects:
-  - effectType: 3
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 3
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 4
+      modifierType: 0
+      multiplier: 0.6
+      percentageValue: 0
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 0
+      count: 0
+    effectType: 1
     powerMultiplier: 0.6
+    percentageValue: 0
+    flatValue: 0
+    strategy: 2
+  - useV2Effect: 1
+    trigger: 0
+    conditions: []
+    target:
+      side: 0
+      kind: 0
+      zone: 0
+      ownershipScope: 1
+      selector: 9
+      count: 1
+    action:
+      actionType: 2
+      modifierType: 3
+      multiplier: 0
+      percentageValue: 0.2
+      intValue: 0
+      statusId: 
+      cardToGenerate: {fileID: 0}
+      fromZone: 0
+      toZone: 2
+      consumeAP: 1
+      triggerOnPlay: 1
+      allowFrozen: 0
+      stopIfHoopBroken: 1
+    duration:
+      durationType: 8
+      count: 0
+    effectType: 3
+    powerMultiplier: 0
     percentageValue: 0.2
     flatValue: 0
     strategy: 2

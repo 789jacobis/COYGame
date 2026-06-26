@@ -28,6 +28,7 @@ public static class CoyMvpSceneBuilder
 
         CreateCamera();
         CreateEventSystem();
+        CoySceneVisualUtility.EnsureCourtSprites(players);
         var controller = CreateBattleSceneUi(cardPrefab, players, cards);
         CoyFontUtility.RepairBattleUiReferences();
 
@@ -156,8 +157,9 @@ public static class CoyMvpSceneBuilder
         var rect = (RectTransform)root.transform;
         rect.sizeDelta = new Vector2(160, 250);
         root.GetComponent<Image>().color = Color.white;
+        var artwork = Panel(root.transform, "Artwork", new Color(1f, 1f, 1f, 0.85f), new Vector2(0, 28), new Vector2(132, 86)).GetComponent<Image>();
         var title = Text(root.transform, "Title", "Card", 22, TextAlignmentOptions.Center, new Vector2(0, 92), new Vector2(145, 44));
-        var body = Text(root.transform, "Body", "Rules", 18, TextAlignmentOptions.TopLeft, new Vector2(0, -10), new Vector2(138, 135));
+        var body = Text(root.transform, "Body", "Rules", 18, TextAlignmentOptions.TopLeft, new Vector2(0, -42), new Vector2(138, 88));
         var cost = Text(root.transform, "Cost", "1", 24, TextAlignmentOptions.Center, new Vector2(-70, 105), new Vector2(42, 34));
         var costRect = cost.rectTransform;
         costRect.anchorMin = costRect.anchorMax = new Vector2(0f, 1f);
@@ -166,6 +168,7 @@ public static class CoyMvpSceneBuilder
 
         var so = new SerializedObject(root.GetComponent<CardView>());
         so.FindProperty("background").objectReferenceValue = root.GetComponent<Image>();
+        so.FindProperty("artworkImage").objectReferenceValue = artwork;
         so.FindProperty("titleText").objectReferenceValue = title;
         so.FindProperty("bodyText").objectReferenceValue = body;
         so.FindProperty("costText").objectReferenceValue = cost;
@@ -195,18 +198,13 @@ public static class CoyMvpSceneBuilder
         uiGo.transform.SetParent(canvasGo.transform, false);
         var ui = uiGo.GetComponent<BattleUI>();
 
-        var court = Panel(canvasGo.transform, "Court", new Color(0.83f, 0.48f, 0.25f), Vector2.zero, new Vector2(1920, 1080));
+        var court = Panel(canvasGo.transform, "Court", new Color(0f, 0f, 0f, 0f), Vector2.zero, new Vector2(1920, 1080));
         court.anchorMin = Vector2.zero;
         court.anchorMax = Vector2.one;
         court.sizeDelta = Vector2.zero;
-        Panel(court.transform, "PaintLeft", new Color(0.75f, 0.25f, 0.2f), new Vector2(-470, 0), new Vector2(210, 430));
-        Panel(court.transform, "PaintRight", new Color(0.75f, 0.25f, 0.2f), new Vector2(470, 0), new Vector2(210, 430));
-        Panel(court.transform, "MidCourt", new Color(0.95f, 0.76f, 0.32f), Vector2.zero, new Vector2(10, 620));
         var drop = court.gameObject.AddComponent<DropZone>();
         drop.Bind(controller);
 
-        var playerHoop = Hoop(canvasGo.transform, "PlayerHoop", new Vector2(-500, 235));
-        var enemyHoop = Hoop(canvasGo.transform, "EnemyHoop", new Vector2(500, 235));
         var playerBars = Bars(canvasGo.transform, "PlayerBars", new Vector2(-455, 360));
         var enemyBars = Bars(canvasGo.transform, "EnemyBars", new Vector2(455, 360));
 
@@ -251,8 +249,6 @@ public static class CoyMvpSceneBuilder
         var modalText = Text(modalBox.transform, "ModalText", "Result", 34, TextAlignmentOptions.Center, new Vector2(0, 45), new Vector2(460, 120));
         var modalButton = Button(modalBox.transform, "ModalButton", "OK", 30, new Vector2(0, -75), new Vector2(170, 65));
         modal.gameObject.SetActive(false);
-
-        AddPlaceholderPlayers(canvasGo.transform, players);
 
         var uiSo = new SerializedObject(ui);
         uiSo.FindProperty("phaseText").objectReferenceValue = phase;
@@ -386,10 +382,12 @@ public static class CoyMvpSceneBuilder
     {
         var cameraGo = new GameObject("Main Camera", typeof(Camera));
         cameraGo.tag = "MainCamera";
+        cameraGo.transform.position = new Vector3(0f, 0f, -10f);
         var camera = cameraGo.GetComponent<Camera>();
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = new Color(0.12f, 0.2f, 0.24f);
         camera.orthographic = true;
+        camera.orthographicSize = 5f;
     }
 
     private static void CreateEventSystem()

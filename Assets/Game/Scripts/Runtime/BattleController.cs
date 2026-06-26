@@ -136,6 +136,7 @@ namespace COYGame
                 RefreshAll();
             }
 
+            ResolvePhaseEndTriggers();
             DiscardRemainingHand();
         }
 
@@ -171,6 +172,7 @@ namespace COYGame
 
             if (phase == BattlePhase.PlayerAttack)
             {
+                ResolvePhaseEndTriggers();
                 DiscardRemainingHand();
                 var scored = EnemyHoop.IsBroken;
                 if (scored)
@@ -191,6 +193,7 @@ namespace COYGame
 
             if (phase == BattlePhase.PlayerDefense)
             {
+                ResolvePhaseEndTriggers();
                 DiscardRemainingHand();
                 StartCoroutine(EnemyAttackSequence());
             }
@@ -261,6 +264,7 @@ namespace COYGame
                 }
             }
 
+            ResolvePhaseEndTriggers();
             EndEnemyAttackResult(PlayerHoop.IsBroken);
         }
 
@@ -271,6 +275,7 @@ namespace COYGame
                 return false;
             }
 
+            ResolvePhaseEndTriggers();
             DiscardRemainingHand();
             PlayerTeam.Score += (int)context.Strategy;
             phase = BattlePhase.PlayerAttackResult;
@@ -315,12 +320,15 @@ namespace COYGame
             maxApThisPhase = ap;
             var drawCount = Mathf.Max(0, baseDrawCount + acting.NextTurnDrawModifier);
             acting.NextTurnDrawModifier = 0;
-            var hand = deck.Draw(drawCount);
+            var hand = new List<CardRuntime>();
+            deck.ReleaseReservedToHand(hand, card => IsCardEligibleForDeck(card, acting, deck));
+            var drawn = deck.Draw(drawCount);
+            hand.AddRange(drawn);
             if (deck == acting.AttackDeck)
             {
                 AddPendingReboundCards(acting, hand);
             }
-            return new TurnContext
+            var createdContext = new TurnContext
             {
                 Phase = phase,
                 ActingTeam = acting,
@@ -332,6 +340,33 @@ namespace COYGame
                 Deck = deck,
                 Hand = hand
             };
+            createdContext.ResolveCardTriggers = (cards, trigger) => ResolveTriggersForCards(cards, createdContext, trigger);
+            ResolveTriggersForCards(drawn, createdContext, CardTrigger.OnDraw);
+            ResolvePhaseStartTriggers(createdContext);
+            return createdContext;
+        }
+
+        private bool IsCardEligibleForDeck(CardRuntime card, TeamRuntime acting, DeckRuntime deck)
+        {
+            if (card == null)
+            {
+                return false;
+            }
+
+            if (card.Data.cardType == CardType.Universal)
+            {
+                return true;
+            }
+
+            if (card.Data.cardType == CardType.Item)
+            {
+                return card.Data.usablePhase == BattlePhase.None
+                    || deck == acting.AttackDeck && card.Data.usablePhase is BattlePhase.PlayerAttack or BattlePhase.EnemyAttack
+                    || deck == acting.DefenseDeck && card.Data.usablePhase is BattlePhase.PlayerDefense or BattlePhase.EnemyDefense;
+            }
+
+            return deck == acting.AttackDeck && card.Data.cardType == CardType.Attack
+                || deck == acting.DefenseDeck && card.Data.cardType == CardType.Defense;
         }
 
         private void AddPendingReboundCards(TeamRuntime acting, List<CardRuntime> hand)
@@ -351,13 +386,50 @@ namespace COYGame
 
         private void PlayCard(CardRuntime card)
         {
-            context.Ap -= card.CurrentCost;
-            context.Hand.Remove(card);
-            card.WasPlayed = true;
-            var message = CardEffectResolver.Resolve(card, context);
-            GetActiveDeck()?.DiscardCard(card);
+            var message = ResolvePlayedCard(card, true);
             ui.SetLog(message);
             ui.RenderHand(context.Hand, phase is BattlePhase.PlayerAttack or BattlePhase.PlayerDefense ? context.Ap : 0);
+        }
+
+        private string ResolvePlayedCard(CardRuntime card, bool consumeAp)
+        {
+            if (consumeAp)
+            {
+                context.Ap -= card.CurrentCost;
+            }
+
+            context.Hand.Remove(card);
+            card.WasPlayed = true;
+            var messages = new List<string> { CardEffectResolver.Resolve(card, context) };
+            if (card.IsCombo)
+            {
+                messages.Add(ResolveComboFollowUp(card));
+            }
+
+            if (card.IsRecycle && !card.IsExhaust && !card.IsOnce && card.TryConsumeRecycle())
+            {
+                context.Hand.Add(card);
+                messages.Add($"{card.Data.cardName}: recycled to hand ({card.RemainingRecycleCount} left)");
+            }
+            else
+            {
+                messages.Add(CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard));
+                GetActiveDeck()?.DiscardCard(card);
+            }
+
+            return JoinMessages(messages);
+        }
+
+        private string ResolveComboFollowUp(CardRuntime sourceCard)
+        {
+            var candidates = context.Hand.FindAll(card => card != sourceCard && card.IsCombo);
+            if (candidates.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var nextCard = candidates[Random.Range(0, candidates.Count)];
+            return $"{sourceCard.Data.cardName}: combo plays {nextCard.Data.cardName}\n{ResolvePlayedCard(nextCard, false)}";
         }
 
         private void DiscardRemainingHand()
@@ -365,11 +437,125 @@ namespace COYGame
             var deck = GetActiveDeck();
             if (deck != null && context != null)
             {
-                deck.DiscardMany(context.Hand);
+                var cards = new List<CardRuntime>(context.Hand);
+                foreach (var card in cards)
+                {
+                    CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard);
+                    deck.DiscardCard(card);
+                }
+
                 context.Hand.Clear();
             }
 
             ui.RenderHand(context?.Hand ?? new List<CardRuntime>(), 0);
+        }
+
+        private void ResolvePhaseStartTriggers(TurnContext targetContext)
+        {
+            if (targetContext == null)
+            {
+                return;
+            }
+
+            var messages = new List<string>
+            {
+                ResolveTriggersForCards(targetContext.Hand, targetContext, CardTrigger.OnAnyOwnPhaseStart),
+                ResolveTriggersForCards(targetContext.Hand, targetContext, CardTrigger.OnEveryOwnPhaseStart),
+                ResolveTriggersForCards(targetContext.Hand, targetContext, CardTrigger.OnNextOwnPhaseStart)
+            };
+
+            if (IsAttackPhase(targetContext.Phase))
+            {
+                messages.Add(ResolveTriggersForCards(targetContext.Hand, targetContext, CardTrigger.OnOwnAttackPhaseStart));
+            }
+            else if (IsDefensePhase(targetContext.Phase))
+            {
+                messages.Add(ResolveTriggersForCards(targetContext.Hand, targetContext, CardTrigger.OnOwnDefensePhaseStart));
+            }
+
+            var message = JoinMessages(messages);
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                ui.SetLog(message);
+            }
+        }
+
+        private void ResolvePhaseEndTriggers()
+        {
+            if (context == null)
+            {
+                return;
+            }
+
+            var messages = new List<string>
+            {
+                ResolveTriggersForCards(context.Hand, context, CardTrigger.OnAnyOwnPhaseEnd),
+                ResolveTriggersForCards(context.Hand, context, CardTrigger.OnPhaseEnd)
+            };
+
+            if (IsAttackPhase(context.Phase))
+            {
+                messages.Add(ResolveTriggersForCards(context.Hand, context, CardTrigger.OnOwnAttackPhaseEnd));
+            }
+            else if (IsDefensePhase(context.Phase))
+            {
+                messages.Add(ResolveTriggersForCards(context.Hand, context, CardTrigger.OnOwnDefensePhaseEnd));
+            }
+
+            var message = JoinMessages(messages);
+            if (!string.IsNullOrWhiteSpace(message))
+            {
+                ui.SetLog(message);
+            }
+        }
+
+        private static bool IsAttackPhase(BattlePhase targetPhase)
+        {
+            return targetPhase is BattlePhase.PlayerAttack or BattlePhase.EnemyAttack;
+        }
+
+        private static bool IsDefensePhase(BattlePhase targetPhase)
+        {
+            return targetPhase is BattlePhase.PlayerDefense or BattlePhase.EnemyDefense;
+        }
+
+        private static string ResolveTriggersForCards(IReadOnlyList<CardRuntime> cards, TurnContext targetContext, CardTrigger trigger)
+        {
+            if (cards == null || targetContext == null)
+            {
+                return string.Empty;
+            }
+
+            var messages = new List<string>();
+            foreach (var card in new List<CardRuntime>(cards))
+            {
+                var message = CardEffectResolver.Resolve(card, targetContext, trigger);
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    messages.Add(message);
+                }
+            }
+
+            return JoinMessages(messages);
+        }
+
+        private static string JoinMessages(params string[] messages)
+        {
+            return JoinMessages((IEnumerable<string>)messages);
+        }
+
+        private static string JoinMessages(IEnumerable<string> messages)
+        {
+            var results = new List<string>();
+            foreach (var message in messages)
+            {
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    results.Add(message);
+                }
+            }
+
+            return string.Join("\n", results);
         }
 
         private DeckRuntime GetActiveDeck()

@@ -15,6 +15,7 @@ MonoBehaviour:
   playerName: Klay
   attack: 70
   defense: 45
+  cardArtwork: {fileID: 21300000, guid: 649c746188a84cb1ae479eb4f1b1eec6, type: 3}
   placeholderColor: {r: 0.3, g: 0.9, b: 0.95, a: 1}
   attackCards:
   - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}

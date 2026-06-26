@@ -8,6 +8,7 @@ namespace COYGame
     public sealed class CardView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler, IPointerUpHandler
     {
         [SerializeField] private Image background = null;
+        [SerializeField] private Image artworkImage = null;
         [SerializeField] private TMP_Text titleText = null;
         [SerializeField] private TMP_Text bodyText = null;
         [SerializeField] private TMP_Text costText = null;
@@ -42,7 +43,43 @@ namespace COYGame
             bodyText.text = $"{ownerName}\n{Card.Data.rulesText}";
             costText.text = Card.CurrentCost.ToString();
             costText.color = Card.CurrentCost < Card.Data.apCost ? Color.red : Color.black;
+            RefreshArtwork();
             background.color = playable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 0.9f);
+        }
+
+        private void RefreshArtwork()
+        {
+            var sprite = Card.Data.artwork != null
+                ? Card.Data.artwork
+                : Card.Owner != null ? Card.Owner.cardArtwork : null;
+            if (background != null)
+            {
+                background.sprite = sprite;
+                background.preserveAspect = false;
+            }
+
+            if (artworkImage != null)
+            {
+                artworkImage.enabled = false;
+            }
+
+            if (titleText != null)
+            {
+                titleText.transform.SetAsLastSibling();
+            }
+
+            if (bodyText != null)
+            {
+                var bodyRect = bodyText.rectTransform;
+                bodyRect.anchoredPosition = new Vector2(0f, -42f);
+                bodyRect.sizeDelta = new Vector2(138f, 88f);
+                bodyText.transform.SetAsLastSibling();
+            }
+
+            if (costText != null)
+            {
+                costText.transform.SetAsLastSibling();
+            }
         }
 
         private void ConfigureCostPosition()

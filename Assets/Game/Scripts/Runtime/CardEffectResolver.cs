@@ -6,10 +6,21 @@ namespace COYGame
     {
         public static string Resolve(CardRuntime card, TurnContext context)
         {
+            return Resolve(card, context, CardTrigger.OnPlay);
+        }
+
+        public static string Resolve(CardRuntime card, TurnContext context, CardTrigger trigger)
+        {
             var messages = new System.Collections.Generic.List<string>();
             foreach (var effect in card.Data.Effects)
             {
-                messages.Add(ResolveEffect(card, context, effect));
+                var message = effect.useV2Effect
+                    ? EffectResolverV2.Resolve(card, context, effect, trigger)
+                    : trigger == CardTrigger.OnPlay ? ResolveEffect(card, context, effect) : string.Empty;
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    messages.Add(message);
+                }
             }
 
             return string.Join("\n", messages);

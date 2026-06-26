@@ -15,6 +15,7 @@ MonoBehaviour:
   playerName: Reaves
   attack: 58
   defense: 55
+  cardArtwork: {fileID: 21300000, guid: 84a070b1f0b4423593254a7e26888501, type: 3}
   placeholderColor: {r: 0.95, g: 0.95, b: 0.45, a: 1}
   attackCards:
   - {fileID: 11400000, guid: ed0db479b05452f4193f96f8a6a5c22e, type: 2}

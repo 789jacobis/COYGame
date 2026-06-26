@@ -49,6 +49,7 @@ namespace COYGame
         public Button modalButton;
 
         public Transform DragLayer => dragLayer;
+        private CardView previewCardView;
 
         private void Awake()
         {
@@ -150,11 +151,11 @@ namespace COYGame
 
         public void ShowCardPreview(CardRuntime card)
         {
-            previewTitle.text = card.Data.cardName;
-            var ownerName = card.Owner != null ? card.Owner.playerName : "[Item]";
-            previewBody.text = $"{ownerName}\n{card.Data.rulesText}";
-            previewCost.text = $"{card.CurrentCost} AP";
-            previewCost.color = card.CurrentCost < card.Data.apCost ? Color.red : Color.black;
+            EnsureCardPrefab();
+            EnsureCardPreviewView();
+            SetPreviewTextVisible(false);
+            previewCardView.Bind(card, this);
+            previewCardView.Refresh(true);
             cardPreview.gameObject.SetActive(true);
         }
 
@@ -163,6 +164,45 @@ namespace COYGame
             if (cardPreview != null)
             {
                 cardPreview.gameObject.SetActive(false);
+            }
+        }
+
+        private void EnsureCardPreviewView()
+        {
+            if (previewCardView != null || cardPreview == null || cardViewPrefab == null)
+            {
+                return;
+            }
+
+            previewCardView = Instantiate(cardViewPrefab, cardPreview);
+            var rect = (RectTransform)previewCardView.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one * 1.55f;
+
+            foreach (var graphic in previewCardView.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.raycastTarget = false;
+            }
+        }
+
+        private void SetPreviewTextVisible(bool visible)
+        {
+            if (previewTitle != null)
+            {
+                previewTitle.gameObject.SetActive(visible);
+            }
+
+            if (previewBody != null)
+            {
+                previewBody.gameObject.SetActive(visible);
+            }
+
+            if (previewCost != null)
+            {
+                previewCost.gameObject.SetActive(visible);
             }
         }
 
@@ -336,6 +376,12 @@ namespace COYGame
             foreach (var graphic in cardPreview.GetComponentsInChildren<Graphic>(true))
             {
                 graphic.raycastTarget = false;
+            }
+
+            var previewImage = cardPreview.GetComponent<Image>();
+            if (previewImage != null)
+            {
+                previewImage.color = new Color(1f, 1f, 1f, 0f);
             }
         }
 
