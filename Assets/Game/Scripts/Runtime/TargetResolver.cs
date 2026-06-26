@@ -15,6 +15,21 @@ namespace COYGame
             return context.TargetHoop;
         }
 
+        public static List<PlayerRuntime> ResolvePlayers(CardRuntime sourceCard, CardTargetData target, TurnContext context)
+        {
+            var candidates = GetPlayers(sourceCard, target, context);
+            return target.selector switch
+            {
+                TargetSelectorType.OwnerPlayer => sourceCard.Owner != null
+                    ? candidates.FindAll(player => player.Data == sourceCard.Owner)
+                    : new List<PlayerRuntime>(),
+                TargetSelectorType.HighestAttackPlayer => PickHighestAttack(candidates, target.count),
+                TargetSelectorType.Random => PickRandom(candidates, target.count),
+                TargetSelectorType.All => candidates,
+                _ => candidates
+            };
+        }
+
         public static List<CardRuntime> ResolveCards(CardRuntime sourceCard, CardTargetData target, TurnContext context)
         {
             return ResolveCards(sourceCard, target, context, null);
@@ -104,6 +119,59 @@ namespace COYGame
         private static List<CardRuntime> PickLowestCost(List<CardRuntime> candidates, int count)
         {
             candidates.Sort((left, right) => left.CurrentCost.CompareTo(right.CurrentCost));
+            return candidates.GetRange(0, Mathf.Min(Mathf.Max(0, count), candidates.Count));
+        }
+
+        private static List<PlayerRuntime> GetPlayers(CardRuntime sourceCard, CardTargetData target, TurnContext context)
+        {
+            var teams = new List<TeamRuntime>();
+            if (target.side is TargetSide.Self or TargetSide.Both)
+            {
+                teams.Add(context.ActingTeam);
+            }
+
+            if (target.side is TargetSide.Opponent or TargetSide.Both)
+            {
+                teams.Add(context.OpposingTeam);
+            }
+
+            var players = new List<PlayerRuntime>();
+            foreach (var team in teams)
+            {
+                if (team == null)
+                {
+                    continue;
+                }
+
+                players.AddRange(team.RuntimePlayers);
+            }
+
+            if (target.ownershipScope == OwnershipScope.OwnerOnly && sourceCard.Owner != null)
+            {
+                players = players.FindAll(player => player.Data == sourceCard.Owner);
+            }
+
+            return players;
+        }
+
+        private static List<PlayerRuntime> PickRandom(List<PlayerRuntime> candidates, int count)
+        {
+            var results = new List<PlayerRuntime>();
+            var pool = new List<PlayerRuntime>(candidates);
+            var take = Mathf.Min(Mathf.Max(0, count), pool.Count);
+            for (var i = 0; i < take; i++)
+            {
+                var index = Random.Range(0, pool.Count);
+                results.Add(pool[index]);
+                pool.RemoveAt(index);
+            }
+
+            return results;
+        }
+
+        private static List<PlayerRuntime> PickHighestAttack(List<PlayerRuntime> candidates, int count)
+        {
+            candidates.Sort((left, right) => right.Attack.CompareTo(left.Attack));
             return candidates.GetRange(0, Mathf.Min(Mathf.Max(0, count), candidates.Count));
         }
     }

@@ -20,6 +20,8 @@ public static class CoyCardSmokeTestUtility
         TestV2Triggers(failures);
         TestHoopTriggers(failures);
         TestKeywordRuntime(failures);
+        TestStatusRuntime(failures);
+        TestPlayerRuntime(failures);
 
         if (failures.Count > 0)
         {
@@ -221,6 +223,98 @@ public static class CoyCardSmokeTestUtility
         Expect(!runtimeCard.TryConsumeRecycle(), failures, "Recycle should stop when remaining count reaches zero.");
     }
 
+    private static void TestStatusRuntime(List<string> failures)
+    {
+        var statusCard = CreateStatusCard(
+            "Hot Hand",
+            EffectActionType.ApplyTeamStatus,
+            TargetKind.Team,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.5f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0);
+        var attackCard = CreateDamageCard("Status Shot", 1f);
+        var hoop = new HoopState();
+        hoop.Reset(500);
+        var context = CreateContext(new List<CardRuntime>(), hoop);
+
+        Resolve(statusCard, context);
+        Resolve(attackCard, context, CreatePlayer("Shooter", 100, 100));
+
+        Expect(hoop.Hp == 350, failures, "Team outgoing attack status should increase 100 damage to 150.");
+        Expect(context.ActingTeam.Statuses.Has("Hot Hand"), failures, "Applied team status should be present before phase end.");
+
+        context.ActingTeam.Statuses.TickPhaseEnd(BattlePhase.PlayerAttack);
+
+        Expect(!context.ActingTeam.Statuses.Has("Hot Hand"), failures, "CurrentPhase team status should expire at phase end.");
+
+        var targetCard = new CardRuntime(CreateDamageCard("Target Card", 1f), CreatePlayer("TargetOwner", 100, 100));
+        var cardStatus = CreateStatusCard(
+            "Marked Card",
+            EffectActionType.ApplyCardStatus,
+            TargetKind.Card,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.UntilTriggered,
+            0);
+        context = CreateContext(new List<CardRuntime>());
+        context.Hand.Add(targetCard);
+
+        Resolve(cardStatus, context);
+
+        Expect(targetCard.Statuses.Has("Marked Card"), failures, "ApplyCardStatus should attach a status to the targeted hand card.");
+    }
+
+    private static void TestPlayerRuntime(List<string> failures)
+    {
+        var ownerBuff = CreateStatusCard(
+            "Owner Hot Hand",
+            EffectActionType.ApplyPlayerStatus,
+            TargetKind.Player,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.5f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.OwnerPlayer);
+        var attackCard = CreateDamageCard("Owner Shot", 1f);
+        var owner = CreatePlayer("Owner", 100, 100);
+        var hoop = new HoopState();
+        hoop.Reset(500);
+        var context = CreateContextWithPlayers(new[] { owner }, hoop);
+
+        Resolve(ownerBuff, context, owner);
+        Resolve(attackCard, context, owner);
+
+        Expect(context.ActingTeam.GetPlayerRuntime(owner).Statuses.Has("Owner Hot Hand"), failures, "OwnerPlayer status should attach to the card owner.");
+        Expect(hoop.Hp == 350, failures, "OwnerPlayer outgoing attack status should increase 100 damage to 150.");
+
+        var low = CreatePlayer("Low", 40, 100);
+        var high = CreatePlayer("High", 120, 100);
+        var highestBuff = CreateStatusCard(
+            "Highest Hot Hand",
+            EffectActionType.ApplyPlayerStatus,
+            TargetKind.Player,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.HighestAttackPlayer);
+        context = CreateContextWithPlayers(new[] { low, high });
+
+        Resolve(highestBuff, context, low);
+
+        Expect(!context.ActingTeam.GetPlayerRuntime(low).Statuses.Has("Highest Hot Hand"), failures, "HighestAttackPlayer should not target the lower attack player.");
+        Expect(context.ActingTeam.GetPlayerRuntime(high).Statuses.Has("Highest Hot Hand"), failures, "HighestAttackPlayer should target the highest attack player.");
+    }
+
 
     private static void Resolve(CardData card, TurnContext context, PlayerData owner = null)
     {
@@ -250,6 +344,31 @@ public static class CoyCardSmokeTestUtility
             MaxAp = 4,
             DrawCount = 4,
             Deck = new DeckRuntime(deckCards, 3003),
+            Hand = new List<CardRuntime>()
+        };
+    }
+
+    private static TurnContext CreateContextWithPlayers(IReadOnlyList<PlayerData> actingPlayers, HoopState hoop = null)
+    {
+        var acting = new TeamRuntime(TeamSide.Player, actingPlayers, 1001);
+        var opposing = new TeamRuntime(TeamSide.Enemy, new[] { CreatePlayer("Opposing", 100, 100) }, 2002);
+        if (hoop == null)
+        {
+            hoop = new HoopState();
+            hoop.Reset(500);
+        }
+
+        return new TurnContext
+        {
+            Phase = BattlePhase.PlayerAttack,
+            ActingTeam = acting,
+            OpposingTeam = opposing,
+            TargetHoop = hoop,
+            Strategy = ScoreStrategy.TwoPoint,
+            Ap = 4,
+            MaxAp = 4,
+            DrawCount = 4,
+            Deck = new DeckRuntime(new List<CardRuntime>(), 3003),
             Hand = new List<CardRuntime>()
         };
     }
@@ -319,6 +438,81 @@ public static class CoyCardSmokeTestUtility
                 actionType = actionType,
                 intValue = value,
                 multiplier = 1f
+            }
+        });
+        return card;
+    }
+
+    private static CardData CreateDamageCard(string name, float multiplier)
+    {
+        var card = CreateRuntimeCard(name, CardType.Attack, 0);
+        card.effects.Add(new CardEffectData
+        {
+            useV2Effect = true,
+            trigger = CardTrigger.OnPlay,
+            target = new CardTargetData
+            {
+                side = TargetSide.Opponent,
+                kind = TargetKind.Hoop,
+                selector = TargetSelectorType.OpponentTeam,
+                count = 1
+            },
+            action = new EffectActionData
+            {
+                actionType = EffectActionType.DealDamage,
+                multiplier = multiplier
+            }
+        });
+        return card;
+    }
+
+    private static CardData CreateStatusCard(
+        string statusId,
+        EffectActionType actionType,
+        TargetKind targetKind,
+        StatusModifierType modifierType,
+        ModifierValueMode valueMode,
+        float floatValue,
+        int intValue,
+        EffectDurationType durationType,
+        int durationCount,
+        TargetSelectorType selector = TargetSelectorType.ActingTeam)
+    {
+        var card = CreateRuntimeCard(statusId, CardType.Universal, 0);
+        card.effects.Add(new CardEffectData
+        {
+            useV2Effect = true,
+            trigger = CardTrigger.OnPlay,
+            target = new CardTargetData
+            {
+                side = TargetSide.Self,
+                kind = targetKind,
+                zone = CardZone.Hand,
+                ownershipScope = OwnershipScope.TeamAll,
+                selector = targetKind == TargetKind.Card ? TargetSelectorType.All : selector,
+                count = 1
+            },
+            action = new EffectActionData
+            {
+                actionType = actionType,
+                statusId = statusId,
+                statusDisplayName = statusId,
+                statusStacks = 1,
+                modifiers = new List<EffectModifierData>
+                {
+                    new()
+                    {
+                        modifierType = modifierType,
+                        valueMode = valueMode,
+                        floatValue = floatValue,
+                        intValue = intValue
+                    }
+                }
+            },
+            duration = new EffectDurationData
+            {
+                durationType = durationType,
+                count = durationCount
             }
         });
         return card;

@@ -125,7 +125,7 @@ namespace COYGame
         {
             phase = BattlePhase.EnemyDefense;
             context = CreateContext(EnemyTeam, PlayerTeam, EnemyHoop, EnemyTeam.DefenseDeck);
-            ui.RenderHand(context.Hand, 0);
+            ui.RenderHand(context.Hand, 0, false);
             RefreshAll();
 
             var cards = enemyAI.ChooseCards(context);
@@ -248,7 +248,7 @@ namespace COYGame
                 PlayerHoop.ApplyThreePointPressure(threePointMultiplier);
             }
 
-            ui.RenderHand(context.Hand, 0);
+            ui.RenderHand(context.Hand, 0, false);
             ui.SetLog($"Enemy chose a {(int)strategy}-point attack");
             RefreshAll();
 
@@ -388,7 +388,8 @@ namespace COYGame
         {
             var message = ResolvePlayedCard(card, true);
             ui.SetLog(message);
-            ui.RenderHand(context.Hand, phase is BattlePhase.PlayerAttack or BattlePhase.PlayerDefense ? context.Ap : 0);
+            var revealCards = phase is BattlePhase.PlayerAttack or BattlePhase.PlayerDefense;
+            ui.RenderHand(context.Hand, revealCards ? context.Ap : 0, revealCards);
         }
 
         private string ResolvePlayedCard(CardRuntime card, bool consumeAp)
@@ -478,6 +479,8 @@ namespace COYGame
             {
                 ui.SetLog(message);
             }
+
+            TickStatusDurations(context);
         }
 
         private void ResolvePhaseEndTriggers()
@@ -537,6 +540,30 @@ namespace COYGame
             }
 
             return JoinMessages(messages);
+        }
+
+        private static void TickStatusDurations(TurnContext targetContext)
+        {
+            if (targetContext?.ActingTeam?.Statuses == null)
+            {
+                return;
+            }
+
+            targetContext.ActingTeam.Statuses.TickPhaseEnd(targetContext.Phase);
+            foreach (var player in targetContext.ActingTeam.RuntimePlayers)
+            {
+                player?.Statuses?.TickPhaseEnd(targetContext.Phase);
+            }
+
+            if (targetContext.Hand == null)
+            {
+                return;
+            }
+
+            foreach (var card in targetContext.Hand)
+            {
+                card?.Statuses?.TickPhaseEnd(targetContext.Phase);
+            }
         }
 
         private static string JoinMessages(params string[] messages)

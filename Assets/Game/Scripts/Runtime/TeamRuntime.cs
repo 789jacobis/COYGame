@@ -13,6 +13,7 @@ namespace COYGame
             var defenseCards = new List<CardRuntime>();
             foreach (var player in players)
             {
+                RuntimePlayers.Add(new PlayerRuntime(player));
                 foreach (var card in player.attackCards)
                 {
                     attackCards.Add(new CardRuntime(card, player));
@@ -30,11 +31,18 @@ namespace COYGame
 
         public TeamSide Side { get; }
         public IReadOnlyList<PlayerData> Players { get; }
+        public List<PlayerRuntime> RuntimePlayers { get; } = new();
         public DeckRuntime AttackDeck { get; }
         public DeckRuntime DefenseDeck { get; }
+        public StatusContainer Statuses { get; } = new();
         public int Score { get; set; }
         public int NextTurnApModifier { get; set; }
         public int NextTurnDrawModifier { get; set; }
         public int PendingReboundCards { get; set; }
+
+        public PlayerRuntime GetPlayerRuntime(PlayerData player)
+        {
+            return RuntimePlayers.Find(runtime => runtime.Data == player);
+        }
     }
 }

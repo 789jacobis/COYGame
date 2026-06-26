@@ -98,7 +98,7 @@ namespace COYGame
             return screenPosition.y >= bottom && screenPosition.y <= top;
         }
 
-        public void RenderHand(IReadOnlyList<CardRuntime> hand, int currentAp)
+        public void RenderHand(IReadOnlyList<CardRuntime> hand, int currentAp, bool revealCards = true)
         {
             EnsureCardPrefab();
             for (var i = handRoot.childCount - 1; i >= 0; i--)
@@ -111,8 +111,8 @@ namespace COYGame
             foreach (var card in hand)
             {
                 var view = Instantiate(cardViewPrefab, handRoot);
-                view.Bind(card, this);
-                view.Refresh(card.CurrentCost <= currentAp);
+                view.Bind(card, this, revealCards);
+                view.Refresh(revealCards && card.CurrentCost <= currentAp);
             }
 
             ApplyFanHandLayout();

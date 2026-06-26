@@ -151,6 +151,26 @@ namespace COYGame
         NextIncomingAttack
     }
 
+    public enum StatusModifierType
+    {
+        None,
+        OutgoingAttackDamage,
+        IncomingAttackDamage,
+        ShieldGain,
+        AvailableAP,
+        MaxAP,
+        DrawCount,
+        CardCost
+    }
+
+    public enum ModifierValueMode
+    {
+        FlatAdd,
+        PercentAdd,
+        Multiplier,
+        Override
+    }
+
     public enum CardEffectType
     {
         DealDamage,

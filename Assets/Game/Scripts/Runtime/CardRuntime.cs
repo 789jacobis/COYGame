@@ -12,6 +12,7 @@ namespace COYGame
 
         public CardData Data { get; }
         public PlayerData Owner { get; }
+        public StatusContainer Statuses { get; } = new();
         public int CurrentCost { get; set; }
         public int RemainingRecycleCount { get; private set; }
         public bool WasPlayed { get; set; }

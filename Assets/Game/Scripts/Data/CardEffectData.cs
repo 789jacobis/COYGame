@@ -52,6 +52,10 @@ namespace COYGame
         public float percentageValue;
         public int intValue;
         public string statusId;
+        public string statusDisplayName;
+        [Min(1)] public int statusStacks = 1;
+        [Min(0)] public int maxStatusStacks;
+        public List<EffectModifierData> modifiers = new();
         public CardData cardToGenerate;
         public CardZone fromZone = CardZone.Hand;
         public CardZone toZone = CardZone.DiscardPile;
@@ -68,5 +72,14 @@ namespace COYGame
     {
         public EffectDurationType durationType = EffectDurationType.Instant;
         [Min(0)] public int count;
+    }
+
+    [Serializable]
+    public sealed class EffectModifierData
+    {
+        public StatusModifierType modifierType = StatusModifierType.None;
+        public ModifierValueMode valueMode = ModifierValueMode.FlatAdd;
+        public float floatValue;
+        public int intValue;
     }
 }

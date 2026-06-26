@@ -23,13 +23,15 @@ namespace COYGame
         private int originalSiblingIndex;
         private bool dragging;
         private bool played;
+        private bool faceDown;
 
         public CardRuntime Card { get; private set; }
 
-        public void Bind(CardRuntime card, BattleUI ui)
+        public void Bind(CardRuntime card, BattleUI ui, bool showFace = true)
         {
             Card = card;
             battleUI = ui;
+            faceDown = !showFace;
             rectTransform = (RectTransform)transform;
             canvasGroup = canvasGroup != null ? canvasGroup : GetComponent<CanvasGroup>();
             ConfigureCostPosition();
@@ -38,6 +40,33 @@ namespace COYGame
 
         public void Refresh(bool playable)
         {
+            if (faceDown)
+            {
+                RefreshFaceDown();
+                return;
+            }
+
+            if (titleText != null)
+            {
+                titleText.gameObject.SetActive(true);
+            }
+
+            if (bodyText != null)
+            {
+                bodyText.gameObject.SetActive(true);
+            }
+
+            if (costText != null)
+            {
+                costText.gameObject.SetActive(true);
+            }
+
+            if (canvasGroup != null)
+            {
+                canvasGroup.blocksRaycasts = true;
+                canvasGroup.interactable = true;
+            }
+
             titleText.text = Card.Data.cardName;
             var ownerName = Card.Owner != null ? Card.Owner.playerName : "[Item]";
             bodyText.text = $"{ownerName}\n{Card.Data.rulesText}";
@@ -45,6 +74,42 @@ namespace COYGame
             costText.color = Card.CurrentCost < Card.Data.apCost ? Color.red : Color.black;
             RefreshArtwork();
             background.color = playable ? Color.white : new Color(0.55f, 0.55f, 0.55f, 0.9f);
+        }
+
+        private void RefreshFaceDown()
+        {
+            if (titleText != null)
+            {
+                titleText.gameObject.SetActive(false);
+            }
+
+            if (bodyText != null)
+            {
+                bodyText.gameObject.SetActive(false);
+            }
+
+            if (costText != null)
+            {
+                costText.gameObject.SetActive(false);
+            }
+
+            if (artworkImage != null)
+            {
+                artworkImage.enabled = false;
+            }
+
+            if (background != null)
+            {
+                background.sprite = null;
+                background.color = new Color(0.12f, 0.16f, 0.22f, 1f);
+                background.raycastTarget = false;
+            }
+
+            if (canvasGroup != null)
+            {
+                canvasGroup.blocksRaycasts = false;
+                canvasGroup.interactable = false;
+            }
         }
 
         private void RefreshArtwork()
@@ -56,6 +121,7 @@ namespace COYGame
             {
                 background.sprite = sprite;
                 background.preserveAspect = false;
+                background.raycastTarget = true;
             }
 
             if (artworkImage != null)
@@ -100,11 +166,21 @@ namespace COYGame
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (faceDown)
+            {
+                return;
+            }
+
             battleUI.ShowCardPreview(Card);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (faceDown)
+            {
+                return;
+            }
+
             if (!dragging)
             {
                 battleUI.HideCardPreview();
@@ -113,6 +189,11 @@ namespace COYGame
 
         public void OnBeginDrag(PointerEventData eventData)
         {
+            if (faceDown)
+            {
+                return;
+            }
+
             dragging = true;
             originalParent = transform.parent;
             originalSiblingIndex = transform.GetSiblingIndex();
@@ -127,11 +208,21 @@ namespace COYGame
 
         public void OnDrag(PointerEventData eventData)
         {
+            if (faceDown)
+            {
+                return;
+            }
+
             rectTransform.position = eventData.position;
         }
 
         public void OnEndDrag(PointerEventData eventData)
         {
+            if (faceDown)
+            {
+                return;
+            }
+
             dragging = false;
             canvasGroup.blocksRaycasts = true;
 

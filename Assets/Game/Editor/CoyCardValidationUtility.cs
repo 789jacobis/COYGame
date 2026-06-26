@@ -261,18 +261,59 @@ public static class CoyCardValidationUtility
                     Warn(issues, card, path, $"V2 effect {index} MoveCard moves from and to the same zone.");
                 }
                 break;
+            case EffectActionType.ApplyTeamStatus:
+            case EffectActionType.ApplyCardStatus:
+            case EffectActionType.ApplyPlayerStatus:
+            case EffectActionType.ApplyModifier:
+                ValidateStatusAction(card, path, effect, index, issues);
+                break;
+            case EffectActionType.ClearStatus:
+                if (string.IsNullOrWhiteSpace(action.statusId))
+                {
+                    Warn(issues, card, path, $"V2 effect {index} ClearStatus has empty statusId and will clear all statuses on the target.");
+                }
+                break;
             case EffectActionType.CopyCard:
             case EffectActionType.PlayCard:
             case EffectActionType.PlayRandomCards:
-            case EffectActionType.ApplyTeamStatus:
-            case EffectActionType.ApplyPlayerStatus:
-            case EffectActionType.ApplyCardStatus:
-            case EffectActionType.ApplyModifier:
-            case EffectActionType.ClearStatus:
             case EffectActionType.ModifyShield:
             case EffectActionType.RepeatDamage:
                 Warn(issues, card, path, $"V2 effect {index} uses {action.actionType}, but runtime support is not implemented yet.");
                 break;
+        }
+    }
+
+    private static void ValidateStatusAction(CardData card, string path, CardEffectData effect, int index, List<CardValidationIssue> issues)
+    {
+        var action = effect.action;
+        if (string.IsNullOrWhiteSpace(action.statusId))
+        {
+            Warn(issues, card, path, $"V2 effect {index} {action.actionType} has no statusId. Runtime will use action name as the status id.");
+        }
+
+        if (action.modifiers == null || action.modifiers.Count == 0)
+        {
+            if (action.modifierType == EffectModifierType.None)
+            {
+                Warn(issues, card, path, $"V2 effect {index} {action.actionType} has no status modifiers.");
+            }
+
+            return;
+        }
+
+        for (var i = 0; i < action.modifiers.Count; i++)
+        {
+            var modifier = action.modifiers[i];
+            if (modifier == null)
+            {
+                Error(issues, card, path, $"V2 effect {index} status modifier {i} is null.");
+                continue;
+            }
+
+            if (modifier.modifierType == StatusModifierType.None)
+            {
+                Error(issues, card, path, $"V2 effect {index} status modifier {i} has modifierType None.");
+            }
         }
     }
 
