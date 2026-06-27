@@ -58,6 +58,7 @@ namespace COYGame
                 EffectDurationType.OwnAttackPhases => phase is BattlePhase.PlayerAttack or BattlePhase.EnemyAttack,
                 EffectDurationType.OwnDefensePhases => phase is BattlePhase.PlayerDefense or BattlePhase.EnemyDefense,
                 EffectDurationType.AnyOwnPhases => phase is BattlePhase.PlayerAttack or BattlePhase.EnemyAttack or BattlePhase.PlayerDefense or BattlePhase.EnemyDefense,
+                EffectDurationType.FullRounds => phase is BattlePhase.PlayerAttack or BattlePhase.EnemyAttack or BattlePhase.PlayerDefense or BattlePhase.EnemyDefense,
                 _ => false
             };
         }

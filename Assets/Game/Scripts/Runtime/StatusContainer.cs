@@ -96,7 +96,7 @@ namespace COYGame
         {
             for (var i = statuses.Count - 1; i >= 0; i--)
             {
-                if (statuses[i].DurationType != EffectDurationType.UntilTriggered)
+                if (statuses[i].DurationType is not (EffectDurationType.UntilTriggered or EffectDurationType.UntilUsed))
                 {
                     continue;
                 }

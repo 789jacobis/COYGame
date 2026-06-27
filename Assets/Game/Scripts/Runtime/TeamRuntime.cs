@@ -36,8 +36,6 @@ namespace COYGame
         public DeckRuntime DefenseDeck { get; }
         public StatusContainer Statuses { get; } = new();
         public int Score { get; set; }
-        public int NextTurnApModifier { get; set; }
-        public int NextTurnDrawModifier { get; set; }
         public int PendingReboundCards { get; set; }
 
         public PlayerRuntime GetPlayerRuntime(PlayerData player)

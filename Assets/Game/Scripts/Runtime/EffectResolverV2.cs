@@ -87,12 +87,10 @@ namespace COYGame
                 * card.Statuses.Multiplier(StatusModifierType.OutgoingAttackDamage)
                 * (ownerPlayer?.Statuses.Multiplier(StatusModifierType.OutgoingAttackDamage) ?? 1f);
             var incomingMultiplier = targetTeam.Statuses.Multiplier(StatusModifierType.IncomingAttackDamage);
-            var raw = Mathf.RoundToInt(ownerAttack * effect.action.multiplier * context.OutgoingAttackMultiplier * context.NextAttackCardMultiplier * context.NextIncomingAttackMultiplier * outgoingMultiplier * incomingMultiplier);
+            var raw = Mathf.RoundToInt(ownerAttack * effect.action.multiplier * outgoingMultiplier * incomingMultiplier);
             var targetHoop = TargetResolver.ResolveHoop(effect.target, context);
             var wasBroken = targetHoop.IsBroken;
             var dealt = targetHoop.ApplyDamage(raw);
-            context.NextAttackCardMultiplier = 1f;
-            context.NextIncomingAttackMultiplier = 1f;
             context.ActingTeam.Statuses.ConsumeTriggered(StatusModifierType.OutgoingAttackDamage);
             card.Statuses.ConsumeTriggered(StatusModifierType.OutgoingAttackDamage);
             ownerPlayer?.Statuses.ConsumeTriggered(StatusModifierType.OutgoingAttackDamage);
@@ -132,13 +130,13 @@ namespace COYGame
             switch (action.modifierType)
             {
                 case EffectModifierType.OutgoingAttackThisPhase:
-                    context.OutgoingAttackMultiplier += action.percentageValue;
+                    context.ActingTeam.Statuses.Add(CreateDamageStatus(data.cardName, StatusModifierType.OutgoingAttackDamage, ModifierValueMode.PercentAdd, action.percentageValue, EffectDurationType.CurrentPhase, 1));
                     return $"{data.cardName}: attack damage +{Mathf.RoundToInt(action.percentageValue * 100f)}% this phase";
                 case EffectModifierType.NextAttackCard:
-                    context.NextAttackCardMultiplier += action.percentageValue;
+                    context.ActingTeam.Statuses.Add(CreateDamageStatus(data.cardName, StatusModifierType.OutgoingAttackDamage, ModifierValueMode.PercentAdd, action.percentageValue, EffectDurationType.UntilTriggered, 0));
                     return $"{data.cardName}: next attack +{Mathf.RoundToInt(action.percentageValue * 100f)}% damage";
                 case EffectModifierType.NextIncomingAttack:
-                    context.NextIncomingAttackMultiplier *= Mathf.Clamp01(1f - action.percentageValue);
+                    context.ActingTeam.Statuses.Add(CreateDamageStatus(data.cardName, StatusModifierType.IncomingAttackDamage, ModifierValueMode.Multiplier, Mathf.Clamp01(1f - action.percentageValue), EffectDurationType.UntilTriggered, 0));
                     return $"{data.cardName}: next incoming attack -{Mathf.RoundToInt(action.percentageValue * 100f)}%";
                 default:
                     return $"{data.cardName}: no damage modifier";
@@ -173,7 +171,7 @@ namespace COYGame
         private static string ModifyNextPhaseAP(CardData data, TurnContext context, CardEffectData effect)
         {
             var team = TargetResolver.ResolveTeam(effect.target, context);
-            team.NextTurnApModifier += effect.action.intValue;
+            team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.AvailableAP, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
             return $"{data.cardName}: next phase AP {effect.action.intValue:+#;-#;0}";
         }
 
@@ -200,7 +198,7 @@ namespace COYGame
         private static string ModifyDrawCount(CardData data, TurnContext context, CardEffectData effect)
         {
             var team = TargetResolver.ResolveTeam(effect.target, context);
-            team.NextTurnDrawModifier += effect.action.intValue;
+            team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.DrawCount, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
             return $"{data.cardName}: next draw count {effect.action.intValue:+#;-#;0}";
         }
 
@@ -383,8 +381,41 @@ namespace COYGame
                 EffectDurationType.UntilUsed => 0,
                 EffectDurationType.UntilTriggered => 0,
                 EffectDurationType.ThisGame => 0,
+                EffectDurationType.FullRounds => Mathf.Max(1, duration.count) * 2,
                 _ => Mathf.Max(1, duration.count)
             };
+        }
+
+        private static StatusRuntime CreateDamageStatus(string sourceName, StatusModifierType modifierType, ModifierValueMode valueMode, float floatValue, EffectDurationType durationType, int durationCount)
+        {
+            var statusId = $"{sourceName}_{modifierType}_{durationType}";
+            return new StatusRuntime(
+                statusId,
+                sourceName,
+                1,
+                0,
+                durationType,
+                durationCount,
+                new[]
+                {
+                    new StatusModifierRuntime(modifierType, valueMode, floatValue, 0)
+                });
+        }
+
+        private static StatusRuntime CreateIntStatus(string sourceName, StatusModifierType modifierType, int intValue, EffectDurationType durationType, int durationCount)
+        {
+            var statusId = $"{sourceName}_{modifierType}_{durationType}";
+            return new StatusRuntime(
+                statusId,
+                sourceName,
+                1,
+                0,
+                durationType,
+                durationCount,
+                new[]
+                {
+                    new StatusModifierRuntime(modifierType, ModifierValueMode.FlatAdd, 0f, intValue)
+                });
         }
 
         private static List<StatusModifierRuntime> CreateModifiers(CardEffectData effect)

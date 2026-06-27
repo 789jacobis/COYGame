@@ -315,11 +315,11 @@ namespace COYGame
 
         private TurnContext CreateContext(TeamRuntime acting, TeamRuntime opposing, HoopState targetHoop, DeckRuntime deck)
         {
-            var ap = Mathf.Max(0, baseAp + acting.NextTurnApModifier);
-            acting.NextTurnApModifier = 0;
+            var ap = Mathf.Max(0, acting.Statuses.ApplyInt(StatusModifierType.AvailableAP, baseAp));
             maxApThisPhase = ap;
-            var drawCount = Mathf.Max(0, baseDrawCount + acting.NextTurnDrawModifier);
-            acting.NextTurnDrawModifier = 0;
+            acting.Statuses.ConsumeTriggered(StatusModifierType.AvailableAP);
+            var drawCount = Mathf.Max(0, acting.Statuses.ApplyInt(StatusModifierType.DrawCount, baseDrawCount));
+            acting.Statuses.ConsumeTriggered(StatusModifierType.DrawCount);
             var hand = new List<CardRuntime>();
             deck.ReleaseReservedToHand(hand, card => IsCardEligibleForDeck(card, acting, deck));
             var drawn = deck.Draw(drawCount);
@@ -479,8 +479,6 @@ namespace COYGame
             {
                 ui.SetLog(message);
             }
-
-            TickStatusDurations(context);
         }
 
         private void ResolvePhaseEndTriggers()
@@ -510,6 +508,8 @@ namespace COYGame
             {
                 ui.SetLog(message);
             }
+
+            TickStatusDurations(context);
         }
 
         private static bool IsAttackPhase(BattlePhase targetPhase)

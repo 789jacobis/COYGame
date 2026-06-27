@@ -21,6 +21,8 @@ public static class CoyCardSmokeTestUtility
         TestHoopTriggers(failures);
         TestKeywordRuntime(failures);
         TestStatusRuntime(failures);
+        TestDurationRuntime(failures);
+        TestLegacyStatusBridge(failures);
         TestPlayerRuntime(failures);
 
         if (failures.Count > 0)
@@ -68,14 +70,23 @@ public static class CoyCardSmokeTestUtility
     {
         var heatCheck = LoadCard("HeatCheck");
         var curryHeatCheck = LoadCard("CurryHeatCheck");
+        var attackCard = CreateDamageCard("Damage Modifier Shot", 1f);
+        var shooter = CreatePlayer("Shooter", 100, 100);
+        var hoop = new HoopState();
 
-        var context = CreateContext(new List<CardRuntime>());
+        hoop.Reset(500);
+        var context = CreateContext(new List<CardRuntime>(), hoop);
         Resolve(heatCheck, context);
-        Expect(Mathf.Approximately(context.OutgoingAttackMultiplier, 1.75f), failures, "HeatCheck should increase outgoing attack multiplier to 1.75.");
+        Resolve(attackCard, context, shooter);
+        Expect(hoop.Hp == 325, failures, "HeatCheck status should increase 100 damage to 175.");
+        Expect(context.ActingTeam.Statuses.Has("Heat Check_OutgoingAttackDamage_CurrentPhase"), failures, "HeatCheck CurrentPhase status should remain until phase end.");
 
-        context = CreateContext(new List<CardRuntime>());
+        hoop.Reset(500);
+        context = CreateContext(new List<CardRuntime>(), hoop);
         Resolve(curryHeatCheck, context);
-        Expect(Mathf.Approximately(context.NextAttackCardMultiplier, 1.75f), failures, "CurryHeatCheck should increase next attack card multiplier to 1.75.");
+        Resolve(attackCard, context, shooter);
+        Expect(hoop.Hp == 325, failures, "CurryHeatCheck status should increase the next 100 damage to 175.");
+        Expect(!context.ActingTeam.Statuses.Has("Heat Check_OutgoingAttackDamage_UntilTriggered"), failures, "CurryHeatCheck UntilTriggered status should be consumed by the next attack.");
     }
 
     private static void TestStrategyBonus(List<string> failures)
@@ -117,7 +128,7 @@ public static class CoyCardSmokeTestUtility
         Resolve(lowBlow, context, CreatePlayer("Defender", 30, 100));
 
         Expect(hoop.Shield == 200, failures, "Low Blow should gain 200 shield at 100 DEF.");
-        Expect(context.OpposingTeam.NextTurnApModifier == -1, failures, "Low Blow should reduce opponent next phase AP by 1.");
+        Expect(context.OpposingTeam.Statuses.ApplyInt(StatusModifierType.AvailableAP, 4) == 3, failures, "Low Blow should reduce opponent next phase AP by 1 through status.");
     }
 
     private static void TestDefenseReaction(List<string> failures)
@@ -130,7 +141,7 @@ public static class CoyCardSmokeTestUtility
         Resolve(contest, context, CreatePlayer("Defender", 30, 100));
 
         Expect(hoop.Shield == 60, failures, "Contest should gain 60 shield at 100 DEF.");
-        Expect(Mathf.Approximately(context.NextIncomingAttackMultiplier, 0.8f), failures, "Contest should reduce next incoming attack to 80% damage.");
+        Expect(Mathf.Approximately(context.ActingTeam.Statuses.Multiplier(StatusModifierType.IncomingAttackDamage), 0.8f), failures, "Contest should reduce next incoming attack to 80% damage through status.");
     }
 
     private static void TestV2Triggers(List<string> failures)
@@ -315,6 +326,91 @@ public static class CoyCardSmokeTestUtility
         Expect(context.ActingTeam.GetPlayerRuntime(high).Statuses.Has("Highest Hot Hand"), failures, "HighestAttackPlayer should target the highest attack player.");
     }
 
+    private static void TestDurationRuntime(List<string> failures)
+    {
+        var fullRoundStatus = CreateStatusCard(
+            "Full Round Boost",
+            EffectActionType.ApplyTeamStatus,
+            TargetKind.Team,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.FullRounds,
+            1);
+        var context = CreateContext(new List<CardRuntime>());
+
+        Resolve(fullRoundStatus, context);
+        context.ActingTeam.Statuses.TickPhaseEnd(BattlePhase.PlayerAttack);
+        Expect(context.ActingTeam.Statuses.Has("Full Round Boost"), failures, "FullRounds 1 should survive the first own phase end.");
+        context.ActingTeam.Statuses.TickPhaseEnd(BattlePhase.PlayerDefense);
+        Expect(!context.ActingTeam.Statuses.Has("Full Round Boost"), failures, "FullRounds 1 should expire after two own phase ends.");
+
+        var gameStatus = CreateStatusCard(
+            "Game Long Boost",
+            EffectActionType.ApplyTeamStatus,
+            TargetKind.Team,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.ThisGame,
+            0);
+        context = CreateContext(new List<CardRuntime>());
+
+        Resolve(gameStatus, context);
+        context.ActingTeam.Statuses.TickPhaseEnd(BattlePhase.PlayerAttack);
+        context.ActingTeam.Statuses.TickPhaseEnd(BattlePhase.PlayerDefense);
+        Expect(context.ActingTeam.Statuses.Has("Game Long Boost"), failures, "ThisGame status should not expire from phase ticks.");
+
+        var untilUsedStatus = CreateStatusCard(
+            "Use Once Boost",
+            EffectActionType.ApplyTeamStatus,
+            TargetKind.Team,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.5f,
+            0,
+            EffectDurationType.UntilUsed,
+            0);
+        var attackCard = CreateDamageCard("UntilUsed Shot", 1f);
+        var hoop = new HoopState();
+        hoop.Reset(500);
+        context = CreateContext(new List<CardRuntime>(), hoop);
+
+        Resolve(untilUsedStatus, context);
+        Resolve(attackCard, context, CreatePlayer("Shooter", 100, 100));
+
+        Expect(hoop.Hp == 350, failures, "UntilUsed outgoing attack status should apply to one attack.");
+        Expect(!context.ActingTeam.Statuses.Has("Use Once Boost"), failures, "UntilUsed outgoing attack status should be consumed after it is used.");
+    }
+
+    private static void TestLegacyStatusBridge(List<string> failures)
+    {
+        var nextAttackBuff = CreateLegacyCard("Legacy Next Attack", CardEffectType.BuffNextAttackCard, 0, 0.5f, 0);
+        var attackCard = CreateLegacyCard("Legacy Shot", CardEffectType.DealDamage, 1f, 0, 0);
+        var shooter = CreatePlayer("Legacy Shooter", 100, 100);
+        var hoop = new HoopState();
+        hoop.Reset(500);
+        var context = CreateContext(new List<CardRuntime>(), hoop);
+
+        Resolve(nextAttackBuff, context, shooter);
+        Resolve(attackCard, context, shooter);
+
+        Expect(hoop.Hp == 350, failures, "Legacy BuffNextAttackCard should route through status and increase one 100 damage attack to 150.");
+        Expect(!context.ActingTeam.Statuses.Has("Legacy Next Attack_OutgoingAttackDamage_UntilTriggered"), failures, "Legacy next attack status should be consumed after damage.");
+
+        var nextAp = CreateLegacyCard("Legacy AP Tax", CardEffectType.ModifyOpponentNextTurnAp, 0, 0, -1);
+        context = CreateContext(new List<CardRuntime>());
+        Resolve(nextAp, context, shooter);
+        Expect(context.OpposingTeam.Statuses.ApplyInt(StatusModifierType.AvailableAP, 4) == 3, failures, "Legacy ModifyOpponentNextTurnAp should route through AvailableAP status.");
+
+        var nextDraw = CreateLegacyCard("Legacy Draw Setup", CardEffectType.DrawCards, 0, 0, 1);
+        context = CreateContext(new List<CardRuntime>());
+        Resolve(nextDraw, context, shooter);
+        Expect(context.ActingTeam.Statuses.ApplyInt(StatusModifierType.DrawCount, 4) == 5, failures, "Legacy DrawCards should route through DrawCount status.");
+    }
+
 
     private static void Resolve(CardData card, TurnContext context, PlayerData owner = null)
     {
@@ -462,6 +558,20 @@ public static class CoyCardSmokeTestUtility
                 actionType = EffectActionType.DealDamage,
                 multiplier = multiplier
             }
+        });
+        return card;
+    }
+
+    private static CardData CreateLegacyCard(string name, CardEffectType effectType, float powerMultiplier, float percentageValue, int flatValue)
+    {
+        var card = CreateRuntimeCard(name, CardType.Universal, 0);
+        card.effects.Add(new CardEffectData
+        {
+            useV2Effect = false,
+            effectType = effectType,
+            powerMultiplier = powerMultiplier,
+            percentageValue = percentageValue,
+            flatValue = flatValue
         });
         return card;
     }
