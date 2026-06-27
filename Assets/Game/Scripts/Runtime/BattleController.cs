@@ -27,6 +27,7 @@ namespace COYGame
         private BattlePhase phase = BattlePhase.None;
         private int maxApThisPhase;
         private bool waitingForModal;
+        private bool resolvingPlayerChoice;
 
         public TeamRuntime PlayerTeam { get; private set; }
         public TeamRuntime EnemyTeam { get; private set; }
@@ -77,7 +78,7 @@ namespace COYGame
 
         public void TryPlayPlayerCard(CardView cardView)
         {
-            if (context == null || phase is not (BattlePhase.PlayerAttack or BattlePhase.PlayerDefense))
+            if (resolvingPlayerChoice || context == null || phase is not (BattlePhase.PlayerAttack or BattlePhase.PlayerDefense))
             {
                 ui.HideCardPreview();
                 cardView.ReturnToHand();
@@ -100,15 +101,26 @@ namespace COYGame
                 return;
             }
 
+            StartCoroutine(PlayPlayerCardSequence(cardView));
+        }
+
+        private IEnumerator PlayPlayerCardSequence(CardView cardView)
+        {
+            resolvingPlayerChoice = true;
+            var card = cardView.Card;
+            yield return ResolvePlayerChoices(card);
+
             PlayCard(card);
             cardView.MarkPlayed();
             ui.HideCardPreview();
             if (TryEndPlayerAttackOnScore())
             {
-                return;
+                resolvingPlayerChoice = false;
+                yield break;
             }
 
             RefreshAll();
+            resolvingPlayerChoice = false;
         }
 
         private IEnumerator PlayerOffenseSequence()
@@ -405,6 +417,8 @@ namespace COYGame
                 context.Ap -= card.CurrentCost;
             }
 
+            context.LastPlayedCard = card;
+            context.LastPlayedCardIndex = context.Hand.IndexOf(card);
             context.Hand.Remove(card);
             card.WasPlayed = true;
             var messages = new List<string> { CardEffectResolver.Resolve(card, context) };
@@ -430,6 +444,116 @@ namespace COYGame
             }
 
             return JoinMessages(messages);
+        }
+
+        private IEnumerator ResolvePlayerChoices(CardRuntime card)
+        {
+            context.ChosenCardTargets.Clear();
+            context.ChosenPlayerTargets.Clear();
+
+            foreach (var effect in card.Data.Effects)
+            {
+                if (effect == null
+                    || !effect.useV2Effect
+                    || effect.trigger != CardTrigger.OnPlay
+                    || effect.target == null
+                    || effect.target.selector != TargetSelectorType.PlayerChoice)
+                {
+                    continue;
+                }
+
+                if (effect.target.kind == TargetKind.Card)
+                {
+                    yield return ResolveCardChoice(card, effect);
+                }
+                else if (effect.target.kind == TargetKind.Player)
+                {
+                    yield return ResolvePlayerChoice(card, effect);
+                }
+            }
+        }
+
+        private IEnumerator ResolveCardChoice(CardRuntime card, CardEffectData effect)
+        {
+            var candidates = TargetResolver.ResolveCards(card, CreateCandidateTarget(effect.target), context, effect.conditions);
+            if (candidates.Count == 0)
+            {
+                yield break;
+            }
+
+            var selected = new List<CardRuntime>();
+            var picks = Mathf.Min(Mathf.Max(1, effect.target.count), candidates.Count);
+            for (var i = 0; i < picks; i++)
+            {
+                var labels = new List<string>();
+                foreach (var candidate in candidates)
+                {
+                    labels.Add($"{candidate.Data.cardName} ({candidate.CurrentCost} AP)");
+                }
+
+                var choiceDone = false;
+                var selectedIndex = 0;
+                ui.ShowChoice($"Choose card target for {card.Data.cardName}", labels, index =>
+                {
+                    selectedIndex = index;
+                    choiceDone = true;
+                });
+                yield return new WaitUntil(() => choiceDone);
+
+                selected.Add(candidates[selectedIndex]);
+                candidates.RemoveAt(selectedIndex);
+            }
+
+            ui.HideModal();
+            context.ChosenCardTargets[effect] = selected;
+        }
+
+        private IEnumerator ResolvePlayerChoice(CardRuntime card, CardEffectData effect)
+        {
+            var candidates = TargetResolver.ResolvePlayers(card, CreateCandidateTarget(effect.target), context);
+            if (candidates.Count == 0)
+            {
+                yield break;
+            }
+
+            var selected = new List<PlayerRuntime>();
+            var picks = Mathf.Min(Mathf.Max(1, effect.target.count), candidates.Count);
+            for (var i = 0; i < picks; i++)
+            {
+                var labels = new List<string>();
+                foreach (var candidate in candidates)
+                {
+                    labels.Add(candidate.Data.playerName);
+                }
+
+                var choiceDone = false;
+                var selectedIndex = 0;
+                ui.ShowChoice($"Choose player target for {card.Data.cardName}", labels, index =>
+                {
+                    selectedIndex = index;
+                    choiceDone = true;
+                });
+                yield return new WaitUntil(() => choiceDone);
+
+                selected.Add(candidates[selectedIndex]);
+                candidates.RemoveAt(selectedIndex);
+            }
+
+            ui.HideModal();
+            context.ChosenPlayerTargets[effect] = selected;
+        }
+
+        private static CardTargetData CreateCandidateTarget(CardTargetData target)
+        {
+            return new CardTargetData
+            {
+                side = target.side,
+                kind = target.kind,
+                zone = target.zone,
+                ownershipScope = target.ownershipScope,
+                selector = TargetSelectorType.All,
+                count = target.count
+            };
         }
 
         private string ResolveComboFollowUp(CardRuntime sourceCard)

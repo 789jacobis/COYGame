@@ -41,6 +41,7 @@ namespace COYGame
                     : new List<PlayerRuntime>(),
                 TargetSelectorType.HighestAttackPlayer => PickHighestAttack(candidates, target.count),
                 TargetSelectorType.Random => PickRandom(candidates, target.count),
+                TargetSelectorType.PlayerChoice => ResolveChosenPlayers(context, candidates, target.count),
                 TargetSelectorType.All => candidates,
                 _ => candidates
             };
@@ -64,11 +65,68 @@ namespace COYGame
             return target.selector switch
             {
                 TargetSelectorType.ThisCard => new List<CardRuntime> { sourceCard },
+                TargetSelectorType.NextCard => ResolveNextCards(sourceCard, candidates, target.count, context),
                 TargetSelectorType.Random => PickRandom(candidates, target.count),
                 TargetSelectorType.LowestCostCard => PickLowestCost(candidates, target.count),
+                TargetSelectorType.PlayerChoice => ResolveChosenCards(context, candidates, target.count),
                 TargetSelectorType.All or TargetSelectorType.CardsInZone => candidates,
                 _ => candidates
             };
+        }
+
+        private static List<CardRuntime> ResolveNextCards(CardRuntime sourceCard, List<CardRuntime> candidates, int count, TurnContext context)
+        {
+            if (candidates.Count == 0)
+            {
+                return candidates;
+            }
+
+            var startIndex = -1;
+            if (context != null && context.LastPlayedCard == sourceCard && context.LastPlayedCardIndex >= 0)
+            {
+                startIndex = Mathf.Min(context.LastPlayedCardIndex, candidates.Count - 1);
+            }
+            else
+            {
+                var sourceIndex = candidates.IndexOf(sourceCard);
+                if (sourceIndex >= 0)
+                {
+                    startIndex = sourceIndex + 1;
+                }
+            }
+
+            if (startIndex < 0 || startIndex >= candidates.Count)
+            {
+                return PickFirst(candidates, count);
+            }
+
+            return candidates.GetRange(startIndex, Mathf.Min(Mathf.Max(0, count), candidates.Count - startIndex));
+        }
+
+        private static List<PlayerRuntime> ResolveChosenPlayers(TurnContext context, List<PlayerRuntime> candidates, int count)
+        {
+            if (context?.CurrentEffect != null
+                && context.ChosenPlayerTargets.TryGetValue(context.CurrentEffect, out var chosen)
+                && chosen != null
+                && chosen.Count > 0)
+            {
+                return chosen.FindAll(candidates.Contains);
+            }
+
+            return PickFirst(candidates, count);
+        }
+
+        private static List<CardRuntime> ResolveChosenCards(TurnContext context, List<CardRuntime> candidates, int count)
+        {
+            if (context?.CurrentEffect != null
+                && context.ChosenCardTargets.TryGetValue(context.CurrentEffect, out var chosen)
+                && chosen != null
+                && chosen.Count > 0)
+            {
+                return chosen.FindAll(candidates.Contains);
+            }
+
+            return PickFirst(candidates, count);
         }
 
         private static List<CardRuntime> ApplyCardConditions(List<CardRuntime> candidates, IReadOnlyList<CardConditionData> conditions)
@@ -146,6 +204,16 @@ namespace COYGame
         private static List<CardRuntime> PickLowestCost(List<CardRuntime> candidates, int count)
         {
             candidates.Sort((left, right) => left.CurrentCost.CompareTo(right.CurrentCost));
+            return candidates.GetRange(0, Mathf.Min(Mathf.Max(0, count), candidates.Count));
+        }
+
+        private static List<CardRuntime> PickFirst(List<CardRuntime> candidates, int count)
+        {
+            return candidates.GetRange(0, Mathf.Min(Mathf.Max(0, count), candidates.Count));
+        }
+
+        private static List<PlayerRuntime> PickFirst(List<PlayerRuntime> candidates, int count)
+        {
             return candidates.GetRange(0, Mathf.Min(Mathf.Max(0, count), candidates.Count));
         }
 

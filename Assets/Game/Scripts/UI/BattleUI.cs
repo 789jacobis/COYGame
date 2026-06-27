@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -50,6 +51,7 @@ namespace COYGame
 
         public Transform DragLayer => dragLayer;
         private CardView previewCardView;
+        private readonly List<GameObject> choiceButtons = new();
 
         private void Awake()
         {
@@ -140,12 +142,72 @@ namespace COYGame
         public void ShowModal(string message)
         {
             HideCardPreview();
+            ClearChoiceButtons();
+            if (modalButton != null)
+            {
+                modalButton.gameObject.SetActive(true);
+            }
+
             modalText.text = message;
             modalPanel.SetActive(true);
         }
 
+        public void ShowChoice(string message, IReadOnlyList<string> choices, Action<int> onChosen)
+        {
+            HideCardPreview();
+            ClearChoiceButtons();
+            modalText.text = message;
+            modalPanel.SetActive(true);
+            if (modalButton != null)
+            {
+                modalButton.gameObject.SetActive(false);
+            }
+
+            var parent = modalPanel.transform;
+            for (var i = 0; i < choices.Count; i++)
+            {
+                var index = i;
+                var buttonObject = new GameObject($"ChoiceButton{index + 1}", typeof(RectTransform), typeof(Image), typeof(Button));
+                var rect = (RectTransform)buttonObject.transform;
+                rect.SetParent(parent, false);
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(260f, 48f);
+                rect.anchoredPosition = new Vector2(0f, -52f - index * 58f);
+
+                var image = buttonObject.GetComponent<Image>();
+                image.color = new Color(1f, 1f, 1f, 0.95f);
+
+                var button = buttonObject.GetComponent<Button>();
+                button.onClick.AddListener(() => onChosen?.Invoke(index));
+
+                var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+                var labelRect = (RectTransform)labelObject.transform;
+                labelRect.SetParent(rect, false);
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(8f, 4f);
+                labelRect.offsetMax = new Vector2(-8f, -4f);
+
+                var label = labelObject.GetComponent<TextMeshProUGUI>();
+                label.text = choices[index];
+                label.alignment = TextAlignmentOptions.Center;
+                label.fontSize = 22f;
+                label.color = Color.black;
+                label.raycastTarget = false;
+
+                choiceButtons.Add(buttonObject);
+            }
+        }
+
         public void HideModal()
         {
+            ClearChoiceButtons();
+            if (modalButton != null)
+            {
+                modalButton.gameObject.SetActive(true);
+            }
+
             modalPanel.SetActive(false);
         }
 
@@ -186,6 +248,19 @@ namespace COYGame
             {
                 graphic.raycastTarget = false;
             }
+        }
+
+        private void ClearChoiceButtons()
+        {
+            foreach (var button in choiceButtons)
+            {
+                if (button != null)
+                {
+                    Destroy(button);
+                }
+            }
+
+            choiceButtons.Clear();
         }
 
         private void SetPreviewTextVisible(bool visible)

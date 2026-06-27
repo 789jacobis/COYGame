@@ -18,6 +18,11 @@ namespace COYGame
         public DeckRuntime OpposingDeck;
         public List<CardRuntime> OpposingHand = new();
         public EffectEventContext CurrentEvent;
+        public CardEffectData CurrentEffect;
+        public CardRuntime LastPlayedCard;
+        public int LastPlayedCardIndex = -1;
+        public Dictionary<CardEffectData, List<CardRuntime>> ChosenCardTargets = new();
+        public Dictionary<CardEffectData, List<PlayerRuntime>> ChosenPlayerTargets = new();
         public Func<IReadOnlyList<CardRuntime>, CardTrigger, EffectEventContext, string> ResolveCardTriggers;
     }
 }

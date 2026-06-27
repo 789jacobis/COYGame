@@ -27,6 +27,8 @@ public static class CoyCardSmokeTestUtility
         TestPlayerRuntime(failures);
         TestTargetResolverRuntime(failures);
         TestActionRuntime(failures);
+        TestPlayerChoiceRuntime(failures);
+        TestNextCardRuntime(failures);
 
         if (failures.Count > 0)
         {
@@ -604,6 +606,89 @@ public static class CoyCardSmokeTestUtility
         Resolve(playRandom, context, owner);
         Expect(hoop.Hp == 400, failures, "PlayRandomCards should play one random target card.");
         Expect(context.Hand.Count == 1, failures, "PlayRandomCards should remove exactly one played card from hand.");
+    }
+
+    private static void TestPlayerChoiceRuntime(List<string> failures)
+    {
+        var owner = CreatePlayer("Choice Owner", 100, 100);
+        var firstCard = new CardRuntime(CreateRuntimeCard("First Choice Card", CardType.Universal, 1), owner);
+        var secondCard = new CardRuntime(CreateRuntimeCard("Second Choice Card", CardType.Universal, 1), owner);
+        var cardChoice = CreateStatusCard(
+            "Chosen Card Mark",
+            EffectActionType.ApplyCardStatus,
+            TargetKind.Card,
+            StatusModifierType.CardCost,
+            ModifierValueMode.FlatAdd,
+            0f,
+            -1,
+            EffectDurationType.CurrentPhase,
+            0);
+        var cardChoiceEffect = cardChoice.effects[0];
+        cardChoiceEffect.target.selector = TargetSelectorType.PlayerChoice;
+        var context = CreateContext(new List<CardRuntime>());
+        context.Hand.Add(firstCard);
+        context.Hand.Add(secondCard);
+        context.ChosenCardTargets[cardChoiceEffect] = new List<CardRuntime> { secondCard };
+
+        Resolve(cardChoice, context, owner);
+
+        Expect(!firstCard.Statuses.Has("Chosen Card Mark"), failures, "PlayerChoice card target should not affect an unchosen candidate.");
+        Expect(secondCard.Statuses.Has("Chosen Card Mark"), failures, "PlayerChoice card target should affect the chosen card.");
+
+        var ally = CreatePlayer("Chosen Ally", 80, 100);
+        var playerChoice = CreateStatusCard(
+            "Chosen Player Mark",
+            EffectActionType.ApplyPlayerStatus,
+            TargetKind.Player,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.PlayerChoice);
+        var playerChoiceEffect = playerChoice.effects[0];
+        context = CreateContextWithPlayers(new[] { owner, ally });
+        var chosenPlayer = context.ActingTeam.GetPlayerRuntime(ally);
+        context.ChosenPlayerTargets[playerChoiceEffect] = new List<PlayerRuntime> { chosenPlayer };
+
+        Resolve(playerChoice, context, owner);
+
+        Expect(!context.ActingTeam.GetPlayerRuntime(owner).Statuses.Has("Chosen Player Mark"), failures, "PlayerChoice player target should not affect an unchosen player.");
+        Expect(chosenPlayer.Statuses.Has("Chosen Player Mark"), failures, "PlayerChoice player target should affect the chosen player.");
+    }
+
+    private static void TestNextCardRuntime(List<string> failures)
+    {
+        var owner = CreatePlayer("Next Owner", 100, 100);
+        var nextCardEffectSource = CreateActionCard("Next Card Discount", EffectActionType.ModifyCardCost, TargetKind.Card);
+        nextCardEffectSource.effects[0].target.selector = TargetSelectorType.NextCard;
+        nextCardEffectSource.effects[0].action.intValue = -1;
+        var source = new CardRuntime(nextCardEffectSource, owner);
+        var firstCandidate = new CardRuntime(CreateRuntimeCard("First Candidate", CardType.Universal, 2), owner);
+        var secondCandidate = new CardRuntime(CreateRuntimeCard("Second Candidate", CardType.Universal, 2), owner);
+        var context = CreateContext(new List<CardRuntime>());
+        context.Hand.Add(firstCandidate);
+        context.Hand.Add(secondCandidate);
+        context.LastPlayedCard = source;
+        context.LastPlayedCardIndex = 0;
+
+        CardEffectResolver.Resolve(source, context);
+
+        Expect(firstCandidate.CurrentCost == 1, failures, "NextCard should target the card at the played card's previous hand index.");
+        Expect(secondCandidate.CurrentCost == 2, failures, "NextCard should not affect later candidates when count is 1.");
+
+        context = CreateContext(new List<CardRuntime>());
+        context.Hand.Add(firstCandidate);
+        context.Hand.Add(secondCandidate);
+        context.LastPlayedCard = source;
+        context.LastPlayedCardIndex = 5;
+        firstCandidate.CurrentCost = 2;
+        secondCandidate.CurrentCost = 2;
+
+        CardEffectResolver.Resolve(source, context);
+
+        Expect(secondCandidate.CurrentCost == 1, failures, "NextCard should clamp to the last candidate when the previous index is beyond the candidate list.");
     }
 
 

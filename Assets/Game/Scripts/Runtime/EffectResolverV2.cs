@@ -7,40 +7,49 @@ namespace COYGame
     {
         public static string Resolve(CardRuntime card, TurnContext context, CardEffectData effect, CardTrigger trigger = CardTrigger.OnPlay)
         {
-            if (effect.trigger != trigger || !ConditionsMet(card, context, effect))
+            var previousEffect = context.CurrentEffect;
+            context.CurrentEffect = effect;
+            try
             {
-                return string.Empty;
-            }
+                if (effect.trigger != trigger || !ConditionsMet(card, context, effect))
+                {
+                    return string.Empty;
+                }
 
-            var action = effect.action;
-            var data = card.Data;
-            return action.actionType switch
+                var action = effect.action;
+                var data = card.Data;
+                return action.actionType switch
+                {
+                    EffectActionType.DealDamage => DealDamage(card, context, effect),
+                    EffectActionType.RepeatDamage => RepeatDamage(card, context, effect),
+                    EffectActionType.ModifyDamage => ModifyDamage(data, context, action),
+                    EffectActionType.GainShield => GainShield(card, context, effect),
+                    EffectActionType.ModifyShield => ModifyShield(data, context, effect),
+                    EffectActionType.ModifyAvailableAP => ModifyAvailableAP(data, context, action.intValue),
+                    EffectActionType.ModifyMaxPhaseAP => ModifyMaxPhaseAP(data, context, action.intValue),
+                    EffectActionType.ModifyNextOwnPhaseAP => ModifyNextPhaseAP(data, context, effect),
+                    EffectActionType.ModifyCardCost => ModifyCardCost(data, context, card, effect),
+                    EffectActionType.DrawCards => DrawCards(data, context, card, action.intValue),
+                    EffectActionType.ModifyDrawCount => ModifyDrawCount(data, context, effect),
+                    EffectActionType.DiscardCards => DiscardCards(data, context, card, effect),
+                    EffectActionType.GenerateCard => GenerateCard(data, context, card, action),
+                    EffectActionType.CopyCard => CopyCard(data, context, card, effect),
+                    EffectActionType.MoveCard => MoveCard(data, context, card, effect),
+                    EffectActionType.RemoveCard => RemoveCard(data, context, card, effect),
+                    EffectActionType.PlayCard => PlayCards(data, context, card, effect, false),
+                    EffectActionType.PlayRandomCards => PlayCards(data, context, card, effect, true),
+                    EffectActionType.ApplyTeamStatus => ApplyTeamStatus(data, context, effect),
+                    EffectActionType.ApplyPlayerStatus => ApplyPlayerStatus(data, context, card, effect),
+                    EffectActionType.ApplyCardStatus => ApplyCardStatus(data, context, card, effect),
+                    EffectActionType.ApplyModifier => ApplyModifier(data, context, card, effect),
+                    EffectActionType.ClearStatus => ClearStatus(data, context, card, effect),
+                    _ => $"{data.cardName}: unsupported V2 action {action.actionType}"
+                };
+            }
+            finally
             {
-                EffectActionType.DealDamage => DealDamage(card, context, effect),
-                EffectActionType.RepeatDamage => RepeatDamage(card, context, effect),
-                EffectActionType.ModifyDamage => ModifyDamage(data, context, action),
-                EffectActionType.GainShield => GainShield(card, context, effect),
-                EffectActionType.ModifyShield => ModifyShield(data, context, effect),
-                EffectActionType.ModifyAvailableAP => ModifyAvailableAP(data, context, action.intValue),
-                EffectActionType.ModifyMaxPhaseAP => ModifyMaxPhaseAP(data, context, action.intValue),
-                EffectActionType.ModifyNextOwnPhaseAP => ModifyNextPhaseAP(data, context, effect),
-                EffectActionType.ModifyCardCost => ModifyCardCost(data, context, card, effect),
-                EffectActionType.DrawCards => DrawCards(data, context, card, action.intValue),
-                EffectActionType.ModifyDrawCount => ModifyDrawCount(data, context, effect),
-                EffectActionType.DiscardCards => DiscardCards(data, context, card, effect),
-                EffectActionType.GenerateCard => GenerateCard(data, context, card, action),
-                EffectActionType.CopyCard => CopyCard(data, context, card, effect),
-                EffectActionType.MoveCard => MoveCard(data, context, card, effect),
-                EffectActionType.RemoveCard => RemoveCard(data, context, card, effect),
-                EffectActionType.PlayCard => PlayCards(data, context, card, effect, false),
-                EffectActionType.PlayRandomCards => PlayCards(data, context, card, effect, true),
-                EffectActionType.ApplyTeamStatus => ApplyTeamStatus(data, context, effect),
-                EffectActionType.ApplyPlayerStatus => ApplyPlayerStatus(data, context, card, effect),
-                EffectActionType.ApplyCardStatus => ApplyCardStatus(data, context, card, effect),
-                EffectActionType.ApplyModifier => ApplyModifier(data, context, card, effect),
-                EffectActionType.ClearStatus => ClearStatus(data, context, card, effect),
-                _ => $"{data.cardName}: unsupported V2 action {action.actionType}"
-            };
+                context.CurrentEffect = previousEffect;
+            }
         }
 
         private static bool ConditionsMet(CardRuntime card, TurnContext context, CardEffectData effect)
