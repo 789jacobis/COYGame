@@ -11,7 +11,18 @@ namespace COYGame
 
         public static string Resolve(CardRuntime card, TurnContext context, CardTrigger trigger)
         {
+            return Resolve(card, context, trigger, null);
+        }
+
+        public static string Resolve(CardRuntime card, TurnContext context, CardTrigger trigger, EffectEventContext eventContext)
+        {
             var messages = new System.Collections.Generic.List<string>();
+            var previousEvent = context.CurrentEvent;
+            if (eventContext != null)
+            {
+                context.CurrentEvent = eventContext;
+            }
+
             foreach (var effect in card.Data.Effects)
             {
                 var message = effect.useV2Effect
@@ -23,6 +34,7 @@ namespace COYGame
                 }
             }
 
+            context.CurrentEvent = previousEvent;
             return string.Join("\n", messages);
         }
 

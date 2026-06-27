@@ -193,9 +193,9 @@ public static class CoyCardValidationUtility
             Error(issues, card, path, $"V2 effect {index} target count must be greater than 0.");
         }
 
-        if (target.side == TargetSide.Both)
+        if (target.side == TargetSide.Both && target.kind == TargetKind.Hoop)
         {
-            Warn(issues, card, path, $"V2 effect {index} targets Both, but V2 resolver does not fully support Both yet.");
+            Warn(issues, card, path, $"V2 effect {index} targets Both hoops, but hoop effects currently resolve only the active target hoop.");
         }
     }
 
@@ -261,6 +261,31 @@ public static class CoyCardValidationUtility
                     Warn(issues, card, path, $"V2 effect {index} MoveCard moves from and to the same zone.");
                 }
                 break;
+            case EffectActionType.CopyCard:
+                RequireTargetKind(card, path, index, target, TargetKind.Card, issues);
+                break;
+            case EffectActionType.PlayCard:
+            case EffectActionType.PlayRandomCards:
+                RequireTargetKind(card, path, index, target, TargetKind.Card, issues);
+                if (target.zone != CardZone.Hand)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} {action.actionType} only plays cards from hand at runtime.");
+                }
+                break;
+            case EffectActionType.ModifyShield:
+                if (Mathf.Approximately(action.percentageValue, 0f) && Mathf.Approximately(action.multiplier, 0f))
+                {
+                    Warn(issues, card, path, $"V2 effect {index} ModifyShield has no percentageValue or multiplier.");
+                }
+                break;
+            case EffectActionType.RepeatDamage:
+                RequireTargetKind(card, path, index, target, TargetKind.Hoop, issues);
+                RequirePositiveMultiplier(card, path, index, action, issues);
+                if (action.intValue <= 0)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} RepeatDamage has intValue <= 0 and will repeat once.");
+                }
+                break;
             case EffectActionType.ApplyTeamStatus:
             case EffectActionType.ApplyCardStatus:
             case EffectActionType.ApplyPlayerStatus:
@@ -272,13 +297,6 @@ public static class CoyCardValidationUtility
                 {
                     Warn(issues, card, path, $"V2 effect {index} ClearStatus has empty statusId and will clear all statuses on the target.");
                 }
-                break;
-            case EffectActionType.CopyCard:
-            case EffectActionType.PlayCard:
-            case EffectActionType.PlayRandomCards:
-            case EffectActionType.ModifyShield:
-            case EffectActionType.RepeatDamage:
-                Warn(issues, card, path, $"V2 effect {index} uses {action.actionType}, but runtime support is not implemented yet.");
                 break;
         }
     }

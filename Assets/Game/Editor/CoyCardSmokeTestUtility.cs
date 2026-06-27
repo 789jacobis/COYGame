@@ -18,12 +18,15 @@ public static class CoyCardSmokeTestUtility
         TestUtilityEffects(failures);
         TestDefenseReaction(failures);
         TestV2Triggers(failures);
+        TestEventContext(failures);
         TestHoopTriggers(failures);
         TestKeywordRuntime(failures);
         TestStatusRuntime(failures);
         TestDurationRuntime(failures);
         TestLegacyStatusBridge(failures);
         TestPlayerRuntime(failures);
+        TestTargetResolverRuntime(failures);
+        TestActionRuntime(failures);
 
         if (failures.Count > 0)
         {
@@ -149,7 +152,7 @@ public static class CoyCardSmokeTestUtility
         var onDrawCard = CreateV2Card("OnDraw AP", CardTrigger.OnDraw, EffectActionType.ModifyAvailableAP, 1);
         var drawCard = CreateV2Card("Draw Test", CardTrigger.OnPlay, EffectActionType.DrawCards, 1);
         var context = CreateContext(new List<CardRuntime> { new(onDrawCard, CreatePlayer("DrawOwner", 100, 100)) });
-        context.ResolveCardTriggers = (cards, trigger) => ResolveTriggers(cards, context, trigger);
+        context.ResolveCardTriggers = (cards, trigger, eventContext) => ResolveTriggers(cards, context, trigger, eventContext);
 
         Resolve(drawCard, context);
 
@@ -206,12 +209,77 @@ public static class CoyCardSmokeTestUtility
         var hoop = new HoopState();
         hoop.Reset(50);
         var context = CreateContext(new List<CardRuntime>(), hoop);
-        context.ResolveCardTriggers = (cards, trigger) => ResolveTriggers(cards, context, trigger);
+        context.ResolveCardTriggers = (cards, trigger, eventContext) => ResolveTriggers(cards, context, trigger, eventContext);
 
         Resolve(breakCard, context, CreatePlayer("Breaker", 100, 100));
 
         Expect(hoop.IsBroken, failures, "Hoop trigger test should break the hoop.");
         Expect(context.Ap == 5, failures, "OnHoopBroken trigger should resolve after a card breaks the hoop.");
+    }
+
+    private static void TestEventContext(List<string> failures)
+    {
+        var breakCard = CreateRuntimeCard("Event Break Test", CardType.Attack, 0);
+        breakCard.effects.Add(new CardEffectData
+        {
+            useV2Effect = true,
+            trigger = CardTrigger.OnPlay,
+            target = new CardTargetData
+            {
+                side = TargetSide.Opponent,
+                kind = TargetKind.Hoop,
+                selector = TargetSelectorType.OpponentTeam
+            },
+            action = new EffectActionData
+            {
+                actionType = EffectActionType.DealDamage,
+                multiplier = 1f
+            }
+        });
+        breakCard.effects.Add(new CardEffectData
+        {
+            useV2Effect = true,
+            trigger = CardTrigger.OnHoopBroken,
+            conditions = new List<CardConditionData>
+            {
+                new()
+                {
+                    conditionType = CardConditionType.HoopBrokenByThisCard
+                }
+            },
+            target = new CardTargetData
+            {
+                side = TargetSide.Self,
+                kind = TargetKind.Team,
+                selector = TargetSelectorType.ActingTeam
+            },
+            action = new EffectActionData
+            {
+                actionType = EffectActionType.ModifyAvailableAP,
+                intValue = 1
+            }
+        });
+
+        var hoop = new HoopState();
+        hoop.Reset(50);
+        var context = CreateContext(new List<CardRuntime>(), hoop);
+        EffectEventContext capturedEvent = null;
+        context.ResolveCardTriggers = (cards, trigger, eventContext) =>
+        {
+            if (trigger == CardTrigger.OnHoopBroken)
+            {
+                capturedEvent = eventContext;
+            }
+
+            return ResolveTriggers(cards, context, trigger, eventContext);
+        };
+
+        Resolve(breakCard, context, CreatePlayer("Breaker", 100, 100));
+
+        Expect(capturedEvent != null, failures, "OnHoopBroken should provide an event context.");
+        Expect(capturedEvent?.DamageDealt == 50, failures, "OnHoopBroken event context should include dealt damage.");
+        Expect(capturedEvent?.HoopBrokenBySource == true, failures, "OnHoopBroken event context should mark the source card as the breaker.");
+        Expect(context.Ap == 5, failures, "HoopBrokenByThisCard should read event context and resolve the AP trigger.");
     }
 
     private static void TestKeywordRuntime(List<string> failures)
@@ -411,6 +479,133 @@ public static class CoyCardSmokeTestUtility
         Expect(context.ActingTeam.Statuses.ApplyInt(StatusModifierType.DrawCount, 4) == 5, failures, "Legacy DrawCards should route through DrawCount status.");
     }
 
+    private static void TestTargetResolverRuntime(List<string> failures)
+    {
+        var bothTeamStatus = CreateStatusCard(
+            "Both Team Boost",
+            EffectActionType.ApplyTeamStatus,
+            TargetKind.Team,
+            StatusModifierType.OutgoingAttackDamage,
+            ModifierValueMode.PercentAdd,
+            0.25f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.All,
+            TargetSide.Both);
+        var acting = CreatePlayer("Acting", 100, 100);
+        var opposing = CreatePlayer("Opposing", 100, 100);
+        var context = CreateContextWithTeams(new[] { acting }, new[] { opposing });
+
+        Resolve(bothTeamStatus, context, acting);
+
+        Expect(context.ActingTeam.Statuses.Has("Both Team Boost"), failures, "Both team target should apply status to acting team.");
+        Expect(context.OpposingTeam.Statuses.Has("Both Team Boost"), failures, "Both team target should apply status to opposing team.");
+
+        var opponentPlayerStatus = CreateStatusCard(
+            "Opponent Player Mark",
+            EffectActionType.ApplyPlayerStatus,
+            TargetKind.Player,
+            StatusModifierType.IncomingAttackDamage,
+            ModifierValueMode.Multiplier,
+            0.8f,
+            0,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.All,
+            TargetSide.Opponent);
+        context = CreateContextWithTeams(new[] { acting }, new[] { opposing });
+
+        Resolve(opponentPlayerStatus, context, acting);
+
+        Expect(!context.ActingTeam.GetPlayerRuntime(acting).Statuses.Has("Opponent Player Mark"), failures, "Opponent player target should not apply to acting player.");
+        Expect(context.OpposingTeam.GetPlayerRuntime(opposing).Statuses.Has("Opponent Player Mark"), failures, "Opponent player target should apply to opposing player.");
+
+        var selfCard = new CardRuntime(CreateRuntimeCard("Self Hand Card", CardType.Universal, 1), acting);
+        var opponentCard = new CardRuntime(CreateRuntimeCard("Opponent Hand Card", CardType.Universal, 1), opposing);
+        var bothCardStatus = CreateStatusCard(
+            "Both Card Mark",
+            EffectActionType.ApplyCardStatus,
+            TargetKind.Card,
+            StatusModifierType.CardCost,
+            ModifierValueMode.FlatAdd,
+            0f,
+            -1,
+            EffectDurationType.CurrentPhase,
+            0,
+            TargetSelectorType.All,
+            TargetSide.Both);
+        context = CreateContextWithTeams(new[] { acting }, new[] { opposing });
+        context.Hand.Add(selfCard);
+        context.OpposingHand.Add(opponentCard);
+
+        Resolve(bothCardStatus, context, acting);
+
+        Expect(selfCard.Statuses.Has("Both Card Mark"), failures, "Both card target should apply to acting hand card.");
+        Expect(opponentCard.Statuses.Has("Both Card Mark"), failures, "Both card target should apply to opposing hand card.");
+    }
+
+    private static void TestActionRuntime(List<string> failures)
+    {
+        var owner = CreatePlayer("Action Owner", 100, 100);
+        var hoop = new HoopState();
+        hoop.Reset(500);
+        var context = CreateContext(new List<CardRuntime>(), hoop);
+        var repeatDamage = CreateActionCard("Repeat Damage Test", EffectActionType.RepeatDamage, TargetKind.Hoop);
+        repeatDamage.effects[0].action.multiplier = 1f;
+        repeatDamage.effects[0].action.intValue = 2;
+
+        Resolve(repeatDamage, context, owner);
+        Expect(hoop.Hp == 300, failures, "RepeatDamage should deal damage twice.");
+
+        var modifyShield = CreateActionCard("Modify Shield Test", EffectActionType.ModifyShield, TargetKind.Team);
+        modifyShield.effects[0].action.percentageValue = 0.5f;
+        modifyShield.effects[0].duration.durationType = EffectDurationType.CurrentPhase;
+        var shieldCard = CreateActionCard("Shield Gain Test", EffectActionType.GainShield, TargetKind.Hoop);
+        shieldCard.effects[0].action.multiplier = 1f;
+        hoop.Reset(500);
+        context = CreateContext(new List<CardRuntime>(), hoop);
+
+        Resolve(modifyShield, context, owner);
+        Resolve(shieldCard, context, owner);
+        Expect(hoop.Shield == 150, failures, "ModifyShield should increase the next shield gain calculation.");
+
+        var targetCard = new CardRuntime(CreateDamageCard("Copy Target", 1f), owner);
+        var copyCard = CreateActionCard("Copy Card Test", EffectActionType.CopyCard, TargetKind.Card);
+        copyCard.effects[0].action.toZone = CardZone.Hand;
+        context = CreateContext(new List<CardRuntime>());
+        context.Hand.Add(targetCard);
+
+        Resolve(copyCard, context, owner);
+        Expect(context.Hand.Count == 2, failures, "CopyCard should copy the targeted card into hand.");
+        Expect(context.Hand.Exists(card => card != targetCard && card.Data == targetCard.Data), failures, "CopyCard should preserve copied CardData.");
+
+        var playTarget = new CardRuntime(CreateDamageCard("Play Target", 1f), owner);
+        var playCard = CreateActionCard("Play Card Test", EffectActionType.PlayCard, TargetKind.Card);
+        playCard.effects[0].action.consumeAP = false;
+        hoop.Reset(500);
+        context = CreateContext(new List<CardRuntime>(), hoop);
+        context.Hand.Add(playTarget);
+
+        Resolve(playCard, context, owner);
+        Expect(hoop.Hp == 400, failures, "PlayCard should resolve the target card's OnPlay effect.");
+        Expect(!context.Hand.Contains(playTarget), failures, "PlayCard should remove the played target from hand.");
+
+        var randomTargetA = new CardRuntime(CreateDamageCard("Random Target A", 1f), owner);
+        var randomTargetB = new CardRuntime(CreateDamageCard("Random Target B", 1f), owner);
+        var playRandom = CreateActionCard("Play Random Test", EffectActionType.PlayRandomCards, TargetKind.Card);
+        playRandom.effects[0].target.count = 1;
+        playRandom.effects[0].action.consumeAP = false;
+        hoop.Reset(500);
+        context = CreateContext(new List<CardRuntime>(), hoop);
+        context.Hand.Add(randomTargetA);
+        context.Hand.Add(randomTargetB);
+
+        Resolve(playRandom, context, owner);
+        Expect(hoop.Hp == 400, failures, "PlayRandomCards should play one random target card.");
+        Expect(context.Hand.Count == 1, failures, "PlayRandomCards should remove exactly one played card from hand.");
+    }
+
 
     private static void Resolve(CardData card, TurnContext context, PlayerData owner = null)
     {
@@ -446,8 +641,13 @@ public static class CoyCardSmokeTestUtility
 
     private static TurnContext CreateContextWithPlayers(IReadOnlyList<PlayerData> actingPlayers, HoopState hoop = null)
     {
+        return CreateContextWithTeams(actingPlayers, new[] { CreatePlayer("Opposing", 100, 100) }, hoop);
+    }
+
+    private static TurnContext CreateContextWithTeams(IReadOnlyList<PlayerData> actingPlayers, IReadOnlyList<PlayerData> opposingPlayers, HoopState hoop = null)
+    {
         var acting = new TeamRuntime(TeamSide.Player, actingPlayers, 1001);
-        var opposing = new TeamRuntime(TeamSide.Enemy, new[] { CreatePlayer("Opposing", 100, 100) }, 2002);
+        var opposing = new TeamRuntime(TeamSide.Enemy, opposingPlayers, 2002);
         if (hoop == null)
         {
             hoop = new HoopState();
@@ -465,13 +665,17 @@ public static class CoyCardSmokeTestUtility
             MaxAp = 4,
             DrawCount = 4,
             Deck = new DeckRuntime(new List<CardRuntime>(), 3003),
-            Hand = new List<CardRuntime>()
+            Hand = new List<CardRuntime>(),
+            OpposingDeck = new DeckRuntime(new List<CardRuntime>(), 4004),
+            OpposingHand = new List<CardRuntime>()
         };
     }
 
-    private static string ResolveTriggers(IReadOnlyList<CardRuntime> cards, TurnContext context, CardTrigger trigger)
+    private static string ResolveTriggers(IReadOnlyList<CardRuntime> cards, TurnContext context, CardTrigger trigger, EffectEventContext eventContext = null)
     {
         var messages = new List<string>();
+        var previousEvent = context.CurrentEvent;
+        context.CurrentEvent = eventContext;
         foreach (var card in cards)
         {
             var message = CardEffectResolver.Resolve(card, context, trigger);
@@ -481,6 +685,7 @@ public static class CoyCardSmokeTestUtility
             }
         }
 
+        context.CurrentEvent = previousEvent;
         return string.Join("\n", messages);
     }
 
@@ -562,6 +767,32 @@ public static class CoyCardSmokeTestUtility
         return card;
     }
 
+    private static CardData CreateActionCard(string name, EffectActionType actionType, TargetKind targetKind)
+    {
+        var card = CreateRuntimeCard(name, CardType.Universal, 0);
+        card.effects.Add(new CardEffectData
+        {
+            useV2Effect = true,
+            trigger = CardTrigger.OnPlay,
+            target = new CardTargetData
+            {
+                side = targetKind == TargetKind.Hoop ? TargetSide.Opponent : TargetSide.Self,
+                kind = targetKind,
+                zone = CardZone.Hand,
+                ownershipScope = OwnershipScope.TeamAll,
+                selector = targetKind == TargetKind.Card ? TargetSelectorType.All : TargetSelectorType.ActingTeam,
+                count = 1
+            },
+            action = new EffectActionData
+            {
+                actionType = actionType,
+                multiplier = 1f,
+                intValue = 1
+            }
+        });
+        return card;
+    }
+
     private static CardData CreateLegacyCard(string name, CardEffectType effectType, float powerMultiplier, float percentageValue, int flatValue)
     {
         var card = CreateRuntimeCard(name, CardType.Universal, 0);
@@ -586,7 +817,8 @@ public static class CoyCardSmokeTestUtility
         int intValue,
         EffectDurationType durationType,
         int durationCount,
-        TargetSelectorType selector = TargetSelectorType.ActingTeam)
+        TargetSelectorType selector = TargetSelectorType.ActingTeam,
+        TargetSide targetSide = TargetSide.Self)
     {
         var card = CreateRuntimeCard(statusId, CardType.Universal, 0);
         card.effects.Add(new CardEffectData
@@ -595,7 +827,7 @@ public static class CoyCardSmokeTestUtility
             trigger = CardTrigger.OnPlay,
             target = new CardTargetData
             {
-                side = TargetSide.Self,
+                side = targetSide,
                 kind = targetKind,
                 zone = CardZone.Hand,
                 ownershipScope = OwnershipScope.TeamAll,

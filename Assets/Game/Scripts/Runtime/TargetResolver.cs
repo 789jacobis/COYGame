@@ -10,6 +10,22 @@ namespace COYGame
             return target.side == TargetSide.Opponent ? context.OpposingTeam : context.ActingTeam;
         }
 
+        public static List<TeamRuntime> ResolveTeams(CardTargetData target, TurnContext context)
+        {
+            var teams = new List<TeamRuntime>();
+            if ((target.side is TargetSide.Self or TargetSide.Both) && context.ActingTeam != null)
+            {
+                teams.Add(context.ActingTeam);
+            }
+
+            if ((target.side is TargetSide.Opponent or TargetSide.Both) && context.OpposingTeam != null)
+            {
+                teams.Add(context.OpposingTeam);
+            }
+
+            return teams;
+        }
+
         public static HoopState ResolveHoop(CardTargetData target, TurnContext context)
         {
             return context.TargetHoop;
@@ -85,18 +101,29 @@ namespace COYGame
                 return new List<CardRuntime> { sourceCard };
             }
 
-            if (target.side == TargetSide.Opponent)
+            var cards = new List<CardRuntime>();
+            if (target.side is TargetSide.Self or TargetSide.Both)
             {
-                return new List<CardRuntime>();
+                cards.AddRange(GetCardsFromZone(context.Hand, context.Deck, target.zone));
             }
 
-            return target.zone switch
+            if (target.side is TargetSide.Opponent or TargetSide.Both)
             {
-                CardZone.Hand => new List<CardRuntime>(context.Hand),
-                CardZone.DrawPile => new List<CardRuntime>(context.Deck?.Deck ?? new List<CardRuntime>()),
-                CardZone.DiscardPile => new List<CardRuntime>(context.Deck?.DiscardPile ?? new List<CardRuntime>()),
-                CardZone.Reserved => new List<CardRuntime>(context.Deck?.Reserved ?? new List<CardRuntime>()),
-                CardZone.OutsideGame => new List<CardRuntime>(context.Deck?.OutsideGame ?? new List<CardRuntime>()),
+                cards.AddRange(GetCardsFromZone(context.OpposingHand, context.OpposingDeck, target.zone));
+            }
+
+            return cards;
+        }
+
+        private static List<CardRuntime> GetCardsFromZone(IReadOnlyList<CardRuntime> hand, DeckRuntime deck, CardZone zone)
+        {
+            return zone switch
+            {
+                CardZone.Hand => new List<CardRuntime>(hand ?? new List<CardRuntime>()),
+                CardZone.DrawPile => new List<CardRuntime>(deck?.Deck ?? new List<CardRuntime>()),
+                CardZone.DiscardPile => new List<CardRuntime>(deck?.DiscardPile ?? new List<CardRuntime>()),
+                CardZone.Reserved => new List<CardRuntime>(deck?.Reserved ?? new List<CardRuntime>()),
+                CardZone.OutsideGame => new List<CardRuntime>(deck?.OutsideGame ?? new List<CardRuntime>()),
                 _ => new List<CardRuntime>()
             };
         }

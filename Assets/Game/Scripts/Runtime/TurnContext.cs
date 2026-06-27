@@ -15,6 +15,9 @@ namespace COYGame
         public int DrawCount = 4;
         public DeckRuntime Deck;
         public List<CardRuntime> Hand = new();
-        public Func<IReadOnlyList<CardRuntime>, CardTrigger, string> ResolveCardTriggers;
+        public DeckRuntime OpposingDeck;
+        public List<CardRuntime> OpposingHand = new();
+        public EffectEventContext CurrentEvent;
+        public Func<IReadOnlyList<CardRuntime>, CardTrigger, EffectEventContext, string> ResolveCardTriggers;
     }
 }

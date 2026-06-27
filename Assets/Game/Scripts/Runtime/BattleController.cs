@@ -338,10 +338,16 @@ namespace COYGame
                 MaxAp = ap,
                 DrawCount = drawCount,
                 Deck = deck,
-                Hand = hand
+                Hand = hand,
+                OpposingDeck = deck == acting.AttackDeck ? opposing.DefenseDeck : opposing.AttackDeck,
+                OpposingHand = new List<CardRuntime>()
             };
-            createdContext.ResolveCardTriggers = (cards, trigger) => ResolveTriggersForCards(cards, createdContext, trigger);
-            ResolveTriggersForCards(drawn, createdContext, CardTrigger.OnDraw);
+            createdContext.ResolveCardTriggers = (cards, trigger, eventContext) => ResolveTriggersForCards(cards, createdContext, trigger, eventContext);
+            ResolveTriggersForCards(drawn, createdContext, CardTrigger.OnDraw, new EffectEventContext
+            {
+                Trigger = CardTrigger.OnDraw,
+                AffectedCards = drawn
+            });
             ResolvePhaseStartTriggers(createdContext);
             return createdContext;
         }
@@ -414,7 +420,12 @@ namespace COYGame
             }
             else
             {
-                messages.Add(CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard));
+                messages.Add(CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnDiscard,
+                    SourceCard = card,
+                    AffectedCards = new List<CardRuntime> { card }
+                }));
                 GetActiveDeck()?.DiscardCard(card);
             }
 
@@ -441,7 +452,12 @@ namespace COYGame
                 var cards = new List<CardRuntime>(context.Hand);
                 foreach (var card in cards)
                 {
-                    CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard);
+                    CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnDiscard,
+                        SourceCard = card,
+                        AffectedCards = new List<CardRuntime> { card }
+                    });
                     deck.DiscardCard(card);
                 }
 
@@ -524,12 +540,25 @@ namespace COYGame
 
         private static string ResolveTriggersForCards(IReadOnlyList<CardRuntime> cards, TurnContext targetContext, CardTrigger trigger)
         {
+            return ResolveTriggersForCards(cards, targetContext, trigger, null);
+        }
+
+        private static string ResolveTriggersForCards(IReadOnlyList<CardRuntime> cards, TurnContext targetContext, CardTrigger trigger, EffectEventContext eventContext)
+        {
             if (cards == null || targetContext == null)
             {
                 return string.Empty;
             }
 
             var messages = new List<string>();
+            eventContext ??= new EffectEventContext
+            {
+                Trigger = trigger,
+                AffectedCards = cards
+            };
+
+            var previousEvent = targetContext.CurrentEvent;
+            targetContext.CurrentEvent = eventContext;
             foreach (var card in new List<CardRuntime>(cards))
             {
                 var message = CardEffectResolver.Resolve(card, targetContext, trigger);
@@ -539,6 +568,7 @@ namespace COYGame
                 }
             }
 
+            targetContext.CurrentEvent = previousEvent;
             return JoinMessages(messages);
         }
 

@@ -17,18 +17,23 @@ namespace COYGame
             return action.actionType switch
             {
                 EffectActionType.DealDamage => DealDamage(card, context, effect),
+                EffectActionType.RepeatDamage => RepeatDamage(card, context, effect),
                 EffectActionType.ModifyDamage => ModifyDamage(data, context, action),
                 EffectActionType.GainShield => GainShield(card, context, effect),
+                EffectActionType.ModifyShield => ModifyShield(data, context, effect),
                 EffectActionType.ModifyAvailableAP => ModifyAvailableAP(data, context, action.intValue),
                 EffectActionType.ModifyMaxPhaseAP => ModifyMaxPhaseAP(data, context, action.intValue),
                 EffectActionType.ModifyNextOwnPhaseAP => ModifyNextPhaseAP(data, context, effect),
                 EffectActionType.ModifyCardCost => ModifyCardCost(data, context, card, effect),
-                EffectActionType.DrawCards => DrawCards(data, context, action.intValue),
+                EffectActionType.DrawCards => DrawCards(data, context, card, action.intValue),
                 EffectActionType.ModifyDrawCount => ModifyDrawCount(data, context, effect),
                 EffectActionType.DiscardCards => DiscardCards(data, context, card, effect),
-                EffectActionType.GenerateCard => GenerateCard(data, context, action),
+                EffectActionType.GenerateCard => GenerateCard(data, context, card, action),
+                EffectActionType.CopyCard => CopyCard(data, context, card, effect),
                 EffectActionType.MoveCard => MoveCard(data, context, card, effect),
                 EffectActionType.RemoveCard => RemoveCard(data, context, card, effect),
+                EffectActionType.PlayCard => PlayCards(data, context, card, effect, false),
+                EffectActionType.PlayRandomCards => PlayCards(data, context, card, effect, true),
                 EffectActionType.ApplyTeamStatus => ApplyTeamStatus(data, context, effect),
                 EffectActionType.ApplyPlayerStatus => ApplyPlayerStatus(data, context, card, effect),
                 EffectActionType.ApplyCardStatus => ApplyCardStatus(data, context, card, effect),
@@ -65,7 +70,7 @@ namespace COYGame
                 CardConditionType.PlayerChose3PT => context.ActingTeam.Side == TeamSide.Player && context.Strategy == ScoreStrategy.ThreePoint,
                 CardConditionType.EnemyChose2PT => context.ActingTeam.Side == TeamSide.Enemy && context.Strategy == ScoreStrategy.TwoPoint,
                 CardConditionType.EnemyChose3PT => context.ActingTeam.Side == TeamSide.Enemy && context.Strategy == ScoreStrategy.ThreePoint,
-                CardConditionType.HoopBrokenByThisCard => context.TargetHoop.IsBroken,
+                CardConditionType.HoopBrokenByThisCard => context.CurrentEvent?.HoopBrokenBySource == true && context.CurrentEvent.SourceCard == card,
                 CardConditionType.CardWasNotPlayedThisPhase => !card.WasPlayed,
                 CardConditionType.HasCardInHand => context.Hand.Count > 0,
                 CardConditionType.HasEnoughAP => card.CurrentCost <= context.Ap,
@@ -97,14 +102,34 @@ namespace COYGame
             targetTeam.Statuses.ConsumeTriggered(StatusModifierType.IncomingAttackDamage);
 
             var triggerMessages = new List<string>();
+            var damageEvent = new EffectEventContext
+            {
+                Trigger = CardTrigger.OnHoopDamaged,
+                SourceCard = card,
+                AffectedCards = new List<CardRuntime> { card },
+                TargetHoop = targetHoop,
+                DamageDealt = dealt,
+                HoopWasBroken = wasBroken,
+                HoopBrokenBySource = !wasBroken && targetHoop.IsBroken
+            };
+
             if (dealt > 0 && effect.trigger != CardTrigger.OnHoopDamaged)
             {
-                triggerMessages.Add(context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { card }, CardTrigger.OnHoopDamaged));
+                triggerMessages.Add(context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { card }, CardTrigger.OnHoopDamaged, damageEvent));
             }
 
             if (!wasBroken && targetHoop.IsBroken && effect.trigger != CardTrigger.OnHoopBroken)
             {
-                triggerMessages.Add(context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { card }, CardTrigger.OnHoopBroken));
+                triggerMessages.Add(context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { card }, CardTrigger.OnHoopBroken, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnHoopBroken,
+                    SourceCard = card,
+                    AffectedCards = new List<CardRuntime> { card },
+                    TargetHoop = targetHoop,
+                    DamageDealt = dealt,
+                    HoopWasBroken = wasBroken,
+                    HoopBrokenBySource = true
+                }));
             }
 
             return AppendMessage($"{card.Data.cardName}: {dealt} damage", JoinMessages(triggerMessages));
@@ -123,6 +148,56 @@ namespace COYGame
             card.Statuses.ConsumeTriggered(StatusModifierType.ShieldGain);
             ownerPlayer?.Statuses.ConsumeTriggered(StatusModifierType.ShieldGain);
             return $"{card.Data.cardName}: +{shield} shield";
+        }
+
+        private static string RepeatDamage(CardRuntime card, TurnContext context, CardEffectData effect)
+        {
+            var count = Mathf.Max(1, effect.action.intValue);
+            var messages = new List<string>();
+            for (var i = 0; i < count; i++)
+            {
+                messages.Add(DealDamage(card, context, effect));
+                if (effect.action.stopIfHoopBroken && TargetResolver.ResolveHoop(effect.target, context).IsBroken)
+                {
+                    break;
+                }
+            }
+
+            return AppendMessage($"{card.Data.cardName}: repeat damage {messages.Count}", JoinMessages(messages));
+        }
+
+        private static string ModifyShield(CardData data, TurnContext context, CardEffectData effect)
+        {
+            var teams = TargetResolver.ResolveTeams(effect.target, context);
+            var durationType = effect.duration.durationType == EffectDurationType.Instant
+                ? EffectDurationType.CurrentPhase
+                : effect.duration.durationType;
+            var durationCount = durationType == EffectDurationType.CurrentPhase
+                ? 1
+                : DurationCount(effect.duration);
+            var valueMode = !Mathf.Approximately(effect.action.percentageValue, 0f)
+                ? ModifierValueMode.PercentAdd
+                : ModifierValueMode.Multiplier;
+            var floatValue = valueMode == ModifierValueMode.PercentAdd
+                ? effect.action.percentageValue
+                : Mathf.Approximately(effect.action.multiplier, 0f) ? 1f : effect.action.multiplier;
+
+            foreach (var team in teams)
+            {
+                team.Statuses.Add(new StatusRuntime(
+                    $"{data.cardName}_{StatusModifierType.ShieldGain}_{durationType}",
+                    data.cardName,
+                    1,
+                    0,
+                    durationType,
+                    durationCount,
+                    new[]
+                    {
+                        new StatusModifierRuntime(StatusModifierType.ShieldGain, valueMode, floatValue, 0)
+                    }));
+            }
+
+            return $"{data.cardName}: shield gain modifier applied to {teams.Count} team";
         }
 
         private static string ModifyDamage(CardData data, TurnContext context, EffectActionData action)
@@ -170,8 +245,12 @@ namespace COYGame
 
         private static string ModifyNextPhaseAP(CardData data, TurnContext context, CardEffectData effect)
         {
-            var team = TargetResolver.ResolveTeam(effect.target, context);
-            team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.AvailableAP, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
+            var teams = TargetResolver.ResolveTeams(effect.target, context);
+            foreach (var team in teams)
+            {
+                team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.AvailableAP, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
+            }
+
             return $"{data.cardName}: next phase AP {effect.action.intValue:+#;-#;0}";
         }
 
@@ -186,19 +265,28 @@ namespace COYGame
             return $"{data.cardName}: modified {targets.Count} card cost";
         }
 
-        private static string DrawCards(CardData data, TurnContext context, int count)
+        private static string DrawCards(CardData data, TurnContext context, CardRuntime sourceCard, int count)
         {
             count = context.ActingTeam.Statuses.ApplyInt(StatusModifierType.DrawCount, count);
             var drawn = context.Deck?.Draw(Mathf.Max(0, count)) ?? new List<CardRuntime>();
             context.Hand.AddRange(drawn);
-            var triggerMessage = context.ResolveCardTriggers?.Invoke(drawn, CardTrigger.OnDraw);
+            var triggerMessage = context.ResolveCardTriggers?.Invoke(drawn, CardTrigger.OnDraw, new EffectEventContext
+            {
+                Trigger = CardTrigger.OnDraw,
+                SourceCard = sourceCard,
+                AffectedCards = drawn
+            });
             return AppendMessage($"{data.cardName}: draw {drawn.Count}", triggerMessage);
         }
 
         private static string ModifyDrawCount(CardData data, TurnContext context, CardEffectData effect)
         {
-            var team = TargetResolver.ResolveTeam(effect.target, context);
-            team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.DrawCount, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
+            var teams = TargetResolver.ResolveTeams(effect.target, context);
+            foreach (var team in teams)
+            {
+                team.Statuses.Add(CreateIntStatus(data.cardName, StatusModifierType.DrawCount, effect.action.intValue, EffectDurationType.UntilTriggered, 0));
+            }
+
             return $"{data.cardName}: next draw count {effect.action.intValue:+#;-#;0}";
         }
 
@@ -208,14 +296,19 @@ namespace COYGame
             foreach (var target in targets)
             {
                 context.Hand.Remove(target);
-                context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnDiscard);
+                context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnDiscard, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnDiscard,
+                    SourceCard = card,
+                    AffectedCards = new List<CardRuntime> { target }
+                });
                 context.Deck?.DiscardCard(target);
             }
 
             return $"{data.cardName}: discard {targets.Count}";
         }
 
-        private static string GenerateCard(CardData data, TurnContext context, EffectActionData action)
+        private static string GenerateCard(CardData data, TurnContext context, CardRuntime sourceCard, EffectActionData action)
         {
             if (action.cardToGenerate == null || action.intValue <= 0)
             {
@@ -229,19 +322,129 @@ namespace COYGame
                 if (action.toZone == CardZone.Hand)
                 {
                     context.Hand.Add(runtimeCard);
-                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnCreate);
+                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnCreate, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnCreate,
+                        SourceCard = sourceCard,
+                        AffectedCards = new List<CardRuntime> { runtimeCard }
+                    });
                     generated++;
                 }
                 else if (action.toZone == CardZone.DiscardPile)
                 {
-                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnCreate);
-                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnDiscard);
+                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnCreate, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnCreate,
+                        SourceCard = sourceCard,
+                        AffectedCards = new List<CardRuntime> { runtimeCard }
+                    });
+                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { runtimeCard }, CardTrigger.OnDiscard, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnDiscard,
+                        SourceCard = sourceCard,
+                        AffectedCards = new List<CardRuntime> { runtimeCard }
+                    });
                     context.Deck?.DiscardCard(runtimeCard);
                     generated++;
                 }
             }
 
             return $"{data.cardName}: generate {generated}";
+        }
+
+        private static string CopyCard(CardData data, TurnContext context, CardRuntime card, CardEffectData effect)
+        {
+            var targets = TargetResolver.ResolveCards(card, effect.target, context);
+            var copied = 0;
+            foreach (var target in targets)
+            {
+                var copy = new CardRuntime(target.Data, target.Owner);
+                if (effect.action.toZone == CardZone.Hand)
+                {
+                    context.Hand.Add(copy);
+                    copied++;
+                }
+                else if (effect.action.toZone == CardZone.DiscardPile)
+                {
+                    context.Deck?.DiscardCard(copy);
+                    copied++;
+                }
+                else if (effect.action.toZone == CardZone.OutsideGame)
+                {
+                    context.Deck?.MoveOutsideGame(copy);
+                    copied++;
+                }
+            }
+
+            return $"{data.cardName}: copied {copied} card";
+        }
+
+        private static string PlayCards(CardData data, TurnContext context, CardRuntime sourceCard, CardEffectData effect, bool randomOnly)
+        {
+            var targets = TargetResolver.ResolveCards(sourceCard, effect.target, context)
+                .FindAll(target => target != sourceCard && context.Hand.Contains(target));
+            if (randomOnly)
+            {
+                targets = PickRandomCards(targets, Mathf.Max(1, effect.target.count));
+            }
+
+            var messages = new List<string>();
+            var played = 0;
+            foreach (var target in targets)
+            {
+                if (effect.action.consumeAP && target.CurrentCost > context.Ap)
+                {
+                    continue;
+                }
+
+                if (effect.action.consumeAP)
+                {
+                    context.Ap = Mathf.Max(0, context.Ap - target.CurrentCost);
+                }
+
+                context.Hand.Remove(target);
+                target.WasPlayed = true;
+                if (effect.action.triggerOnPlay)
+                {
+                    messages.Add(CardEffectResolver.Resolve(target, context, CardTrigger.OnPlay, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnPlay,
+                        SourceCard = sourceCard,
+                        AffectedCards = new List<CardRuntime> { target }
+                    }));
+                }
+
+                context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnDiscard, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnDiscard,
+                    SourceCard = sourceCard,
+                    AffectedCards = new List<CardRuntime> { target }
+                });
+                context.Deck?.DiscardCard(target);
+                played++;
+
+                if (effect.action.stopIfHoopBroken && TargetResolver.ResolveHoop(effect.target, context).IsBroken)
+                {
+                    break;
+                }
+            }
+
+            return AppendMessage($"{data.cardName}: played {played} card", JoinMessages(messages));
+        }
+
+        private static List<CardRuntime> PickRandomCards(List<CardRuntime> candidates, int count)
+        {
+            var results = new List<CardRuntime>();
+            var pool = new List<CardRuntime>(candidates);
+            var take = Mathf.Min(Mathf.Max(0, count), pool.Count);
+            for (var i = 0; i < take; i++)
+            {
+                var index = Random.Range(0, pool.Count);
+                results.Add(pool[index]);
+                pool.RemoveAt(index);
+            }
+
+            return results;
         }
 
         private static string MoveCard(CardData data, TurnContext context, CardRuntime card, CardEffectData effect)
@@ -260,12 +463,22 @@ namespace COYGame
 
                 if (effect.action.toZone == CardZone.DiscardPile)
                 {
-                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnDiscard);
+                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnDiscard, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnDiscard,
+                        SourceCard = card,
+                        AffectedCards = new List<CardRuntime> { target }
+                    });
                     context.Deck?.DiscardCard(target);
                 }
                 else if (effect.action.toZone == CardZone.OutsideGame)
                 {
-                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnRemove);
+                    context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnRemove, new EffectEventContext
+                    {
+                        Trigger = CardTrigger.OnRemove,
+                        SourceCard = card,
+                        AffectedCards = new List<CardRuntime> { target }
+                    });
                     context.Deck?.MoveOutsideGame(target);
                 }
             }
@@ -279,7 +492,12 @@ namespace COYGame
             foreach (var target in targets)
             {
                 context.Hand.Remove(target);
-                context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnRemove);
+                context.ResolveCardTriggers?.Invoke(new List<CardRuntime> { target }, CardTrigger.OnRemove, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnRemove,
+                    SourceCard = card,
+                    AffectedCards = new List<CardRuntime> { target }
+                });
                 context.Deck?.MoveOutsideGame(target);
             }
 
@@ -288,9 +506,13 @@ namespace COYGame
 
         private static string ApplyTeamStatus(CardData data, TurnContext context, CardEffectData effect)
         {
-            var team = TargetResolver.ResolveTeam(effect.target, context);
-            team.Statuses.Add(CreateStatus(effect));
-            return $"{data.cardName}: applied {StatusName(effect)}";
+            var teams = TargetResolver.ResolveTeams(effect.target, context);
+            foreach (var team in teams)
+            {
+                team.Statuses.Add(CreateStatus(effect));
+            }
+
+            return $"{data.cardName}: applied {StatusName(effect)} to {teams.Count} team";
         }
 
         private static string ApplyCardStatus(CardData data, TurnContext context, CardRuntime card, CardEffectData effect)
@@ -349,8 +571,13 @@ namespace COYGame
                 return $"{data.cardName}: cleared status from {targets.Count} player";
             }
 
-            TargetResolver.ResolveTeam(effect.target, context).Statuses.Clear(effect.action.statusId);
-            return $"{data.cardName}: cleared status";
+            var teams = TargetResolver.ResolveTeams(effect.target, context);
+            foreach (var team in teams)
+            {
+                team.Statuses.Clear(effect.action.statusId);
+            }
+
+            return $"{data.cardName}: cleared status from {teams.Count} team";
         }
 
         private static StatusRuntime CreateStatus(CardEffectData effect)
@@ -473,7 +700,7 @@ namespace COYGame
                 return TargetResolver.ResolvePlayers(card, effect.target, context).Exists(target => target.Statuses.Has(statusId));
             }
 
-            return TargetResolver.ResolveTeam(effect.target, context).Statuses.Has(statusId);
+            return TargetResolver.ResolveTeams(effect.target, context).Exists(team => team.Statuses.Has(statusId));
         }
 
         private static bool StatusStackAtLeast(CardRuntime card, TurnContext context, CardEffectData effect, string statusId, int stackCount)
@@ -488,7 +715,7 @@ namespace COYGame
                 return TargetResolver.ResolvePlayers(card, effect.target, context).Exists(target => target.Statuses.StackCount(statusId) >= stackCount);
             }
 
-            return TargetResolver.ResolveTeam(effect.target, context).Statuses.StackCount(statusId) >= stackCount;
+            return TargetResolver.ResolveTeams(effect.target, context).Exists(team => team.Statuses.StackCount(statusId) >= stackCount);
         }
 
         private static string AppendMessage(string primary, string secondary)
