@@ -108,9 +108,10 @@ namespace COYGame
         {
             resolvingPlayerChoice = true;
             var card = cardView.Card;
-            yield return ResolvePlayerChoices(card);
-
-            PlayCard(card);
+            cardView.gameObject.SetActive(false);
+            var message = string.Empty;
+            yield return ResolvePlayedCardWithPlayerChoices(card, value => message = value);
+            ui.SetLog(message);
             cardView.MarkPlayed();
             ui.HideCardPreview();
             if (TryEndPlayerAttackOnScore())
@@ -446,6 +447,74 @@ namespace COYGame
             return JoinMessages(messages);
         }
 
+        private IEnumerator ResolvePlayedCardWithPlayerChoices(CardRuntime card, System.Action<string> onResolved)
+        {
+            context.ChosenCardTargets.Clear();
+            context.ChosenPlayerTargets.Clear();
+            context.Ap -= card.CurrentCost;
+            context.LastPlayedCard = card;
+            context.LastPlayedCardIndex = context.Hand.IndexOf(card);
+            context.Hand.Remove(card);
+            card.WasPlayed = true;
+            ui.RenderHand(context.Hand, context.Ap, true);
+
+            var messages = new List<string>();
+            foreach (var effect in card.Data.Effects)
+            {
+                if (effect == null)
+                {
+                    continue;
+                }
+
+                if (effect.useV2Effect
+                    && effect.trigger == CardTrigger.OnPlay
+                    && effect.target != null
+                    && effect.target.selector == TargetSelectorType.PlayerChoice)
+                {
+                    if (effect.target.kind == TargetKind.Card)
+                    {
+                        yield return ResolveCardChoice(card, effect);
+                    }
+                    else if (effect.target.kind == TargetKind.Player)
+                    {
+                        yield return ResolvePlayerChoice(card, effect);
+                    }
+                }
+
+                var message = CardEffectResolver.ResolveSingle(card, context, effect);
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    messages.Add(message);
+                    ui.SetLog(JoinMessages(messages));
+                }
+
+                ui.RenderHand(context.Hand, context.Ap, true);
+            }
+
+            if (card.IsCombo)
+            {
+                messages.Add(ResolveComboFollowUp(card));
+            }
+
+            if (card.IsRecycle && !card.IsExhaust && !card.IsOnce && card.TryConsumeRecycle())
+            {
+                context.Hand.Add(card);
+                messages.Add($"{card.Data.cardName}: recycled to hand ({card.RemainingRecycleCount} left)");
+            }
+            else
+            {
+                messages.Add(CardEffectResolver.Resolve(card, context, CardTrigger.OnDiscard, new EffectEventContext
+                {
+                    Trigger = CardTrigger.OnDiscard,
+                    SourceCard = card,
+                    AffectedCards = new List<CardRuntime> { card }
+                }));
+                GetActiveDeck()?.DiscardCard(card);
+            }
+
+            onResolved?.Invoke(JoinMessages(messages));
+        }
+
         private IEnumerator ResolvePlayerChoices(CardRuntime card)
         {
             context.ChosenCardTargets.Clear();
@@ -476,6 +545,7 @@ namespace COYGame
         private IEnumerator ResolveCardChoice(CardRuntime card, CardEffectData effect)
         {
             var candidates = TargetResolver.ResolveCards(card, CreateCandidateTarget(effect.target), context, effect.conditions);
+            candidates.Remove(card);
             if (candidates.Count == 0)
             {
                 yield break;
@@ -485,27 +555,31 @@ namespace COYGame
             var picks = Mathf.Min(Mathf.Max(1, effect.target.count), candidates.Count);
             for (var i = 0; i < picks; i++)
             {
-                var labels = new List<string>();
-                foreach (var candidate in candidates)
-                {
-                    labels.Add($"{candidate.Data.cardName} ({candidate.CurrentCost} AP)");
-                }
-
                 var choiceDone = false;
-                var selectedIndex = 0;
-                ui.ShowChoice($"Choose card target for {card.Data.cardName}", labels, index =>
+                CardRuntime chosen = null;
+                ui.BeginDraggedCardTargetSelection(GetCardChoicePrompt(effect), candidates, target =>
                 {
-                    selectedIndex = index;
+                    chosen = target;
                     choiceDone = true;
                 });
                 yield return new WaitUntil(() => choiceDone);
 
-                selected.Add(candidates[selectedIndex]);
-                candidates.RemoveAt(selectedIndex);
+                if (chosen != null)
+                {
+                    selected.Add(chosen);
+                    candidates.Remove(chosen);
+                }
             }
 
-            ui.HideModal();
+            ui.EndDraggedCardTargetSelection();
             context.ChosenCardTargets[effect] = selected;
+        }
+
+        private static string GetCardChoicePrompt(CardEffectData effect)
+        {
+            return effect.action.actionType == EffectActionType.ModifyCardCost && effect.action.intValue < 0
+                ? "Choose a card to discount"
+                : "Choose a card target";
         }
 
         private IEnumerator ResolvePlayerChoice(CardRuntime card, CardEffectData effect)

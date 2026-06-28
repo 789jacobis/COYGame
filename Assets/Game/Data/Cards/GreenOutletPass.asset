@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GreenOutletPass
   m_EditorClassIdentifier: Assembly-CSharp::COYGame.CardData
   cardName: Outlet Pass
-  rulesText: Draw 1. A random card in hand costs 1 less this phase.
+  rulesText: Draw 1. Choose a card in hand. It costs 1 less this phase.
   cardType: 0
   keywordRules: []
   apCost: 1
@@ -63,7 +63,7 @@ MonoBehaviour:
       kind: 2
       zone: 0
       ownershipScope: 1
-      selector: 2
+      selector: 4
       count: 1
     action:
       actionType: 9

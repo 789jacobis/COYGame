@@ -52,6 +52,11 @@ namespace COYGame
         public Transform DragLayer => dragLayer;
         private CardView previewCardView;
         private readonly List<GameObject> choiceButtons = new();
+        private readonly HashSet<CardRuntime> selectableCardTargets = new();
+        private Image targetSelectionOverlay;
+        private TMP_Text targetSelectionPrompt;
+        private Action<CardRuntime> onDraggedCardTargetChosen;
+        private bool selectingCardTarget;
 
         private void Awake()
         {
@@ -84,6 +89,11 @@ namespace COYGame
                 return false;
             }
 
+            if (selectingCardTarget)
+            {
+                return TryChooseDraggedCardTarget(cardView, screenPosition);
+            }
+
             if (!IsMiddleScreenBand(screenPosition))
             {
                 return false;
@@ -98,6 +108,81 @@ namespace COYGame
             var bottom = Screen.height / 3f;
             var top = Screen.height * 2f / 3f;
             return screenPosition.y >= bottom && screenPosition.y <= top;
+        }
+
+        public void BeginDraggedCardTargetSelection(string prompt, IReadOnlyList<CardRuntime> candidates, Action<CardRuntime> onChosen)
+        {
+            HideCardPreview();
+            selectableCardTargets.Clear();
+            foreach (var candidate in candidates)
+            {
+                selectableCardTargets.Add(candidate);
+            }
+
+            onDraggedCardTargetChosen = onChosen;
+            selectingCardTarget = true;
+            EnsureTargetSelectionVisuals();
+            targetSelectionPrompt.text = prompt;
+            targetSelectionOverlay.gameObject.SetActive(true);
+            targetSelectionPrompt.gameObject.SetActive(true);
+        }
+
+        public void EndDraggedCardTargetSelection()
+        {
+            selectingCardTarget = false;
+            selectableCardTargets.Clear();
+            onDraggedCardTargetChosen = null;
+            if (targetSelectionOverlay != null)
+            {
+                targetSelectionOverlay.gameObject.SetActive(false);
+            }
+
+            if (targetSelectionPrompt != null)
+            {
+                targetSelectionPrompt.gameObject.SetActive(false);
+            }
+        }
+
+        private bool TryChooseDraggedCardTarget(CardView cardView, Vector2 screenPosition)
+        {
+            if (!IsMiddleScreenBand(screenPosition))
+            {
+                return false;
+            }
+
+            if (!selectableCardTargets.Contains(cardView.Card))
+            {
+                SetLog("Choose a valid target card");
+                return false;
+            }
+
+            cardView.ReturnToHand();
+            HideCardPreview();
+            ShowChoice("Discount this card?", new[] { "YES", "NO" }, index =>
+            {
+                if (index == 0)
+                {
+                    var chosenCard = cardView.Card;
+                    var callback = onDraggedCardTargetChosen;
+                    EndDraggedCardTargetSelection();
+                    HideModal();
+                    callback?.Invoke(chosenCard);
+                }
+                else
+                {
+                    HideModal();
+                    if (targetSelectionOverlay != null)
+                    {
+                        targetSelectionOverlay.gameObject.SetActive(true);
+                    }
+
+                    if (targetSelectionPrompt != null)
+                    {
+                        targetSelectionPrompt.gameObject.SetActive(true);
+                    }
+                }
+            });
+            return true;
         }
 
         public void RenderHand(IReadOnlyList<CardRuntime> hand, int currentAp, bool revealCards = true)
@@ -150,6 +235,7 @@ namespace COYGame
 
             modalText.text = message;
             modalPanel.SetActive(true);
+            modalPanel.transform.SetAsLastSibling();
         }
 
         public void ShowChoice(string message, IReadOnlyList<string> choices, Action<int> onChosen)
@@ -158,6 +244,7 @@ namespace COYGame
             ClearChoiceButtons();
             modalText.text = message;
             modalPanel.SetActive(true);
+            modalPanel.transform.SetAsLastSibling();
             if (modalButton != null)
             {
                 modalButton.gameObject.SetActive(false);
@@ -173,7 +260,9 @@ namespace COYGame
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.sizeDelta = new Vector2(260f, 48f);
-                rect.anchoredPosition = new Vector2(0f, -52f - index * 58f);
+                rect.anchoredPosition = choices.Count == 2
+                    ? new Vector2(index == 0 ? -78f : 78f, -76f)
+                    : new Vector2(0f, -52f - index * 58f);
 
                 var image = buttonObject.GetComponent<Image>();
                 image.color = new Color(1f, 1f, 1f, 0.95f);
@@ -248,6 +337,72 @@ namespace COYGame
             {
                 graphic.raycastTarget = false;
             }
+        }
+
+        private void EnsureTargetSelectionVisuals()
+        {
+            if (targetSelectionOverlay == null)
+            {
+                var overlayObject = new GameObject("TargetSelectionOverlay", typeof(RectTransform), typeof(Image));
+                var overlayRect = (RectTransform)overlayObject.transform;
+                overlayRect.SetParent(GetCanvasRoot(), false);
+                overlayRect.anchorMin = Vector2.zero;
+                overlayRect.anchorMax = Vector2.one;
+                overlayRect.offsetMin = Vector2.zero;
+                overlayRect.offsetMax = Vector2.zero;
+                targetSelectionOverlay = overlayObject.GetComponent<Image>();
+                targetSelectionOverlay.color = new Color(0f, 0f, 0f, 0.38f);
+                targetSelectionOverlay.raycastTarget = false;
+
+                overlayRect.SetAsLastSibling();
+            }
+            else if (targetSelectionOverlay.transform.parent != GetCanvasRoot())
+            {
+                targetSelectionOverlay.rectTransform.SetParent(GetCanvasRoot(), false);
+            }
+
+            if (targetSelectionPrompt == null)
+            {
+                var promptObject = new GameObject("TargetSelectionPrompt", typeof(RectTransform), typeof(TextMeshProUGUI));
+                var promptRect = (RectTransform)promptObject.transform;
+                promptRect.SetParent(GetCanvasRoot(), false);
+                promptRect.anchorMin = promptRect.anchorMax = new Vector2(0.5f, 1f);
+                promptRect.pivot = new Vector2(0.5f, 1f);
+                promptRect.anchoredPosition = new Vector2(0f, -96f);
+                promptRect.sizeDelta = new Vector2(760f, 64f);
+                targetSelectionPrompt = promptObject.GetComponent<TextMeshProUGUI>();
+                targetSelectionPrompt.alignment = TextAlignmentOptions.Center;
+                targetSelectionPrompt.fontSize = 32f;
+                targetSelectionPrompt.color = Color.white;
+                targetSelectionPrompt.raycastTarget = false;
+            }
+            else if (targetSelectionPrompt.transform.parent != GetCanvasRoot())
+            {
+                targetSelectionPrompt.rectTransform.SetParent(GetCanvasRoot(), false);
+            }
+
+            targetSelectionOverlay.transform.SetAsLastSibling();
+            if (handRoot != null)
+            {
+                handRoot.SetAsLastSibling();
+            }
+
+            if (dragLayer != null)
+            {
+                dragLayer.SetAsLastSibling();
+            }
+
+            targetSelectionPrompt.transform.SetAsLastSibling();
+            if (modalPanel != null)
+            {
+                modalPanel.transform.SetAsLastSibling();
+            }
+        }
+
+        private Transform GetCanvasRoot()
+        {
+            var canvas = GetComponentInParent<Canvas>();
+            return canvas != null ? canvas.transform : transform;
         }
 
         private void ClearChoiceButtons()

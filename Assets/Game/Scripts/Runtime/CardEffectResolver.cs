@@ -25,9 +25,7 @@ namespace COYGame
 
             foreach (var effect in card.Data.Effects)
             {
-                var message = effect.useV2Effect
-                    ? EffectResolverV2.Resolve(card, context, effect, trigger)
-                    : trigger == CardTrigger.OnPlay ? ResolveEffect(card, context, effect) : string.Empty;
+                var message = ResolveSingle(card, context, effect, trigger);
                 if (!string.IsNullOrWhiteSpace(message))
                 {
                     messages.Add(message);
@@ -36,6 +34,13 @@ namespace COYGame
 
             context.CurrentEvent = previousEvent;
             return string.Join("\n", messages);
+        }
+
+        public static string ResolveSingle(CardRuntime card, TurnContext context, CardEffectData effect, CardTrigger trigger = CardTrigger.OnPlay)
+        {
+            return effect.useV2Effect
+                ? EffectResolverV2.Resolve(card, context, effect, trigger)
+                : trigger == CardTrigger.OnPlay ? ResolveEffect(card, context, effect) : string.Empty;
         }
 
         private static string ResolveEffect(CardRuntime card, TurnContext context, CardEffectData effect)
