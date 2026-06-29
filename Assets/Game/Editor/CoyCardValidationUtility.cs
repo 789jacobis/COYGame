@@ -197,6 +197,69 @@ public static class CoyCardValidationUtility
         {
             Warn(issues, card, path, $"V2 effect {index} targets Both hoops, but hoop effects currently resolve only the active target hoop.");
         }
+
+        ValidateTargetSelector(card, path, effect, index, issues);
+    }
+
+    private static void ValidateTargetSelector(CardData card, string path, CardEffectData effect, int index, List<CardValidationIssue> issues)
+    {
+        var target = effect.target;
+        switch (target.selector)
+        {
+            case TargetSelectorType.PlayerChoice:
+                if (target.kind is not (TargetKind.Card or TargetKind.Player))
+                {
+                    Error(issues, card, path, $"V2 effect {index} uses PlayerChoice, but only Card or Player targets can be chosen by the player.");
+                }
+
+                if (target.kind == TargetKind.Card && target.side is TargetSide.Opponent or TargetSide.Both && target.zone == CardZone.Hand)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} uses PlayerChoice on opponent hand cards. Opponent hand contents are hidden in the current UI.");
+                }
+
+                if (target.kind == TargetKind.Card && target.zone != CardZone.Hand)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} uses PlayerChoice on {target.zone}. Current drag-selection UI is designed for cards in hand.");
+                }
+
+                break;
+            case TargetSelectorType.NextCard:
+                if (target.kind != TargetKind.Card)
+                {
+                    Error(issues, card, path, $"V2 effect {index} uses NextCard, but NextCard only supports Card targets.");
+                }
+
+                if (target.zone != CardZone.Hand)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} uses NextCard on {target.zone}. Runtime currently treats NextCard as hand-order based.");
+                }
+
+                break;
+            case TargetSelectorType.HighestAttackPlayer:
+            case TargetSelectorType.OwnerPlayer:
+                if (target.kind != TargetKind.Player)
+                {
+                    Error(issues, card, path, $"V2 effect {index} uses {target.selector}, but the target kind is not Player.");
+                }
+
+                break;
+            case TargetSelectorType.LowestCostCard:
+            case TargetSelectorType.CardsInZone:
+                if (target.kind != TargetKind.Card)
+                {
+                    Error(issues, card, path, $"V2 effect {index} uses {target.selector}, but the target kind is not Card.");
+                }
+
+                break;
+            case TargetSelectorType.ActingTeam:
+            case TargetSelectorType.OpponentTeam:
+                if (target.kind != TargetKind.Team && target.kind != TargetKind.Hoop)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} uses {target.selector} with target kind {target.kind}. This selector is usually intended for Team or Hoop effects.");
+                }
+
+                break;
+        }
     }
 
     private static void ValidateAction(CardData card, string path, CardEffectData effect, int index, List<CardValidationIssue> issues)
@@ -230,15 +293,27 @@ public static class CoyCardValidationUtility
             case EffectActionType.ModifyAvailableAP:
             case EffectActionType.ModifyMaxPhaseAP:
             case EffectActionType.ModifyNextOwnPhaseAP:
-            case EffectActionType.ModifyCardCost:
             case EffectActionType.ModifyDrawCount:
                 if (action.intValue == 0)
                 {
                     Warn(issues, card, path, $"V2 effect {index} {action.actionType} has intValue = 0.");
                 }
                 break;
+            case EffectActionType.ModifyCardCost:
+                RequireTargetKind(card, path, index, target, TargetKind.Card, issues);
+                if (action.intValue == 0)
+                {
+                    Warn(issues, card, path, $"V2 effect {index} {action.actionType} has intValue = 0.");
+                }
+                break;
             case EffectActionType.DrawCards:
+                if (action.intValue <= 0)
+                {
+                    Error(issues, card, path, $"V2 effect {index} {action.actionType} requires intValue greater than 0.");
+                }
+                break;
             case EffectActionType.DiscardCards:
+                RequireTargetKind(card, path, index, target, TargetKind.Card, issues);
                 if (action.intValue <= 0)
                 {
                     Error(issues, card, path, $"V2 effect {index} {action.actionType} requires intValue greater than 0.");
@@ -256,6 +331,7 @@ public static class CoyCardValidationUtility
                 }
                 break;
             case EffectActionType.MoveCard:
+                RequireTargetKind(card, path, index, target, TargetKind.Card, issues);
                 if (action.fromZone == action.toZone)
                 {
                     Warn(issues, card, path, $"V2 effect {index} MoveCard moves from and to the same zone.");
@@ -290,13 +366,42 @@ public static class CoyCardValidationUtility
             case EffectActionType.ApplyCardStatus:
             case EffectActionType.ApplyPlayerStatus:
             case EffectActionType.ApplyModifier:
+                ValidateStatusTarget(card, path, effect, index, issues);
                 ValidateStatusAction(card, path, effect, index, issues);
                 break;
             case EffectActionType.ClearStatus:
+                if (target.kind is not (TargetKind.Team or TargetKind.Player or TargetKind.Card))
+                {
+                    Error(issues, card, path, $"V2 effect {index} ClearStatus expected Team, Player, or Card target, got {target.kind}.");
+                }
+
                 if (string.IsNullOrWhiteSpace(action.statusId))
                 {
                     Warn(issues, card, path, $"V2 effect {index} ClearStatus has empty statusId and will clear all statuses on the target.");
                 }
+                break;
+        }
+    }
+
+    private static void ValidateStatusTarget(CardData card, string path, CardEffectData effect, int index, List<CardValidationIssue> issues)
+    {
+        switch (effect.action.actionType)
+        {
+            case EffectActionType.ApplyTeamStatus:
+                RequireTargetKind(card, path, index, effect.target, TargetKind.Team, issues);
+                break;
+            case EffectActionType.ApplyPlayerStatus:
+                RequireTargetKind(card, path, index, effect.target, TargetKind.Player, issues);
+                break;
+            case EffectActionType.ApplyCardStatus:
+                RequireTargetKind(card, path, index, effect.target, TargetKind.Card, issues);
+                break;
+            case EffectActionType.ApplyModifier:
+                if (effect.target.kind is not (TargetKind.Team or TargetKind.Player or TargetKind.Card))
+                {
+                    Error(issues, card, path, $"V2 effect {index} ApplyModifier expected Team, Player, or Card target, got {effect.target.kind}.");
+                }
+
                 break;
         }
     }
